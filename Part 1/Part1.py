@@ -11,38 +11,13 @@ import matplotlib.pyplot as plt
 
 # In[34]:
 
-
-data = pd.read_excel('../Data/Nile.xlsx')
-
-
-# In[35]:
-
-
-data.columns = ['year', 'Nile']
-y = data['Nile']
-
-x = data['year']
-
-
-# In[ ]:
-
-
-
-
-
-# In[39]:
-
-
-def filter(true_value, updatenumber):
-    global filter_a, filter_p, v, F, var_e, var_h
-    if updatenumber == 0 :
-        filter_a = 0 
-        filter_p = 10**7
-        var_e = 15099
-        var_h = 1469.1
-        v = true_value - filter_a
-     
+data = pd.read_excel('../Data/Nile.xlsx', names = ['year', 'Nile'])
+x,y =  data['year'], data['Nile']
     
+    
+# %%
+
+def filter(true_value, filter_a, filter_p, v, var_e, var_h):
     #a prediction
     a_p = filter_a + (filter_p / (filter_p * var_e)) * v
     
@@ -50,76 +25,63 @@ def filter(true_value, updatenumber):
     p_p = (filter_p * var_e) / (filter_p + var_e) + var_h
     
     #F calculation
-    F = filter_p + var_e
+    Ft = filter_p + var_e
     
     #Kalman gain calculation 
-    K = p_p / F
+    k = p_p / Ft
     
     #residual calculation 
     v = true_value - a_p
     
     #filtered prediction 
     
-    filter_a = a_p + K * v
+    filter_a = a_p + k * v
     
     #filtered variance
-    filter_p = p_p - p_p * K
+    filter_p = p_p - p_p * k
     
-    return (filter_a, filter_p, v, F)
-    
-    
-
+    return filter_a, filter_p, v, Ft
 
 # In[41]:
 
 
-f_a = []
-f_p = []
-f_v = []
-f_F = []
+f_a, f_p, f_v, f_Ft = [],[],[],[]
 
-num_of_measurements = len(y) 
-
-for i in range(num_of_measurements):
-    true_value = y[i]
+for i, true_value in enumerate(y):
+    # Initialize Values
+    if i == 0 :
+        filter_a = 0 
+        filter_p = 10**7
+        v = true_value - filter_a
         
-        #call filter
-    results_of_filter = filter(true_value, i)
-        
-        #put the results in lists
-    f_a.append(results_of_filter[0])
-    f_p.append(results_of_filter[1])
-    f_v.append(results_of_filter[2])
-    f_F.append(results_of_filter[3])
-    filter_a = results_of_filter[0]
-    filter_p = results_of_filter[1]
-    v = results_of_filter[2]
-    F = results_of_filter[3]
-    var_e = 15099
-    var_h = 1469.1
+    filter_a, filter_p, v, Ft = filter(true_value, filter_a=filter_a,filter_p=filter_p, 
+                                       var_e=15099, var_h=1469.1, v=v)
+    
+    # Store output
+    f_a.append(filter_a)
+    f_p.append(filter_p)
+    f_v.append(v)
+    f_Ft.append(Ft)
 
 
 # In[48]:
 
+plt.subplot(2,2,1)
+plt.plot(x, y, linestyle = 'none', marker = '.', color = 'red')
+plt.plot(x[4:],f_a[4:], color = 'blue')
+plt.xlim(1865,1975)
+plt.ylim(550,1400)
 
+plt.subplot(2,2, 2)
 plt.plot(x, f_p)
 
-
-# In[50]:
-
-
+plt.subplot(2,2,3)
 plt.plot(x, f_v)
+plt.ylim(-400,400)
 
+plt.subplot(2,2,4)
+plt.plot(x, f_Ft)
 
-# In[51]:
+plt.show()
 
-
-plt.plot(x, f_F)
-
-
-# In[52]:
-
-
-_ = plt.plot(x, y, linestyle = 'none', marker = '.', color = 'red')
-_ = plt.plot(x,f_a, color = 'blue')
-
+# %%
