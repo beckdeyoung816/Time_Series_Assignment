@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-# coding: utf-8
 
-# In[33]:
-
+# %%
 
 from email import header
 import pandas as pd
@@ -13,13 +10,16 @@ import math
 import statsmodels.api as sm
 import pylab as py
 
-# In[34]:
+# %%
 
 data = pd.read_excel('../Data/Nile.xlsx', names = ['year', 'Nile'])
 x,y =  data['year'], data['Nile']
     
-    
+VAR_E = 15099
+VAR_H = 1469.1
 # %%
+# FIGURE 2.1
+
 def filter(true_value, a, p, var_e, var_h):
     
     #Kalman gain calculation
@@ -37,7 +37,7 @@ def filter(true_value, a, p, var_e, var_h):
     
     return filter_a, filter_p, a, p, v, Ft, K
 
-# In[41]:
+# %%
 
 
 f_a, f_p, f_v, f_Ft, f_k = [],[],[],[],[]
@@ -50,7 +50,7 @@ for i, true_value in enumerate(y):
         
         
     filter_a, filter_p, a, p, v, Ft ,K = filter(true_value, a=a, p=p, 
-                                       var_e=15099, var_h=1469.1)
+                                       var_e=VAR_E, var_h=VAR_H)
     
     # Store output
     f_a.append(filter_a)
@@ -60,7 +60,7 @@ for i, true_value in enumerate(y):
     f_k.append(K)
 
 
-# In[48]:
+# %%
 
 plt.subplot(2,2,1)
 plt.plot(x, y, linestyle = 'none', marker = '.', color = 'red')
@@ -82,6 +82,77 @@ plt.plot(x[1:], f_Ft[1:])
 plt.ylim(20000,32500)
 
 plt.show()
+
+# %%
+# FIGURE 2.2
+
+# %%
+# FIGURE 2.3
+Lt = [1 - f_k[i] for i in range(len(f_k))]
+
+Nt, rt = [], []
+for i in range(len(f_Ft)):
+    if i == 0:
+        n=0
+        r=0
+    else:
+        n = 1 / f_Ft[100-i] + Lt[100-i] ** 2 * n
+        r = f_v[100-i] / f_Ft[100-i] + Lt[100-i] * r
+    Nt.append(n)
+    rt.append(r)
+    
+Nt.reverse()
+rt.reverse()
+#%%
+
+Dt = [1 / f_Ft[i] + f_k[i] ** 2 * Nt[i] for i in range(len(Nt))]
+
+#Dt2 = 1 / f_Ft + f_k ** 2 * Nt
+
+ut = [f_v[i] / f_Ft[i] + f_k[i] * rt[i] for i in range(len(rt))]
+
+e_hat_t = [VAR_E * u for u in ut]
+n_hat_t = [VAR_H * r for r in rt]
+var_e_hat = [VAR_E - (VAR_E ** 2 * D) for D in Dt]
+var_n_hat = [VAR_H - (VAR_H ** 2 * N) for N in Nt]
+
+utstar = [ut[i] / math.sqrt(Dt[i]) for i in range(len(Dt))]
+
+rtstar = [rt[i] / math.sqrt(Nt[i]) for i in range(98)]
+
+# %%
+plt.subplot(2,2,1)
+plt.plot(x, e_hat_t)
+plt.axhline(y = 0, color = 'black')
+plt.ylim(-375,300)
+plt.xlim(1865,1975)
+
+
+plt.subplot(2,2, 2)
+plt.plot(x, [math.sqrt(var) for var in var_e_hat])
+
+plt.subplot(2,2,3)
+plt.plot(x, n_hat_t)
+plt.axhline(y = 0, color = 'black')
+plt.ylim(-43,40)
+plt.xlim(1865,1975)
+
+plt.subplot(2,2,4)
+plt.plot(x, [math.sqrt(var) for var in var_n_hat])
+
+plt.show()
+
+# %%
+# FIGURE 2.5
+
+# %%
+# FIGURE 2.6
+
+# %%
+# FIGURE 2.7
+
+# %%
+# FIGURE 2.8
 
 # %%
 
