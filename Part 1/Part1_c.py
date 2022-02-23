@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
-from scipy.optimize import minimize
 
 # %%
 ########## NOTATION
@@ -20,43 +19,16 @@ from scipy.optimize import minimize
 
 # %%
 
-data = pd.read_excel('../Data/Nile.xlsx', names = ['year', 'flow'])
+data = pd.read_csv('../Data/AirPassengers.csv')
     
-VAR_E = 15099
-VAR_H = 1469.1
-A1 = 0
-P1 = 10 ** 7
+# VAR_E = 15099
+# VAR_H = 1469.1
+# A1 = 0
+# P1 = 10 ** 7
 N_OBS = data.shape[0]
 
 # %%
-def Kalman_Filter_ML(vars):
-    var_e = vars[0]
-    var_h = vars[1]
-    
-    for t, y_t in enumerate(data['flow'][1:]):
-        # Initialize Values
-        if t == 0 :
-            a_t = y_t 
-            p_t = var_e + var_h
-        
-        # Apply the filter
-        a_tt, p_tt, a_t, p_t, v_t, F_t, K_t = filter(y_t=y_t, a_t=a_t, p_t=p_t, 
-                                                    var_e=var_e, var_h=var_h)
-        
-        # Store output
-        data.loc[t, ['a_t','p_t','v_t','F_t','K_t']] = [a_tt, p_tt, v_t, F_t, K_t]
-    
-    data['F_star_t'] = data['F_t'] / var_e
-    var_e_hat = 1 / (N_OBS - 1) * np.sum(data['v_t'][1:] ** 2 / data['F_star_t'][1:])
 
-    return -N_OBS/2 * np.log(2 * np.pi) - (N_OBS - 1) / 2 - \
-        (N_OBS - 1) / 2 * np.log(var_e_hat) - \
-            0.5 * np.sum(np.log(data['F_star_t'][1:]))
-
-# %%
-bnds = ((0, np.inf), (0, np.inf))
-test = minimize(Kalman_Filter_ML, (1,1), method = 'BFGS', bounds = bnds)
-# %%
 def filter(y_t, a_t, p_t, var_e, var_h):
     
     # Kalman gain calculation
@@ -73,6 +45,29 @@ def filter(y_t, a_t, p_t, var_e, var_h):
     p_t = p_tt + var_h
     
     return a_tt, p_tt, a_t, p_t, v_t, F_t, K_t
+
+# %% 
+#ML
+
+def Kalman_Filter_ML(var_e, var_h):
+    
+    for t, y_t in enumerate(data['flow']):
+        # Initialize Values
+        if t == 0 :
+            a_t = 0 
+            p_t = 10 ** 7
+        
+        # Apply the filter
+        a_tt, p_tt, a_t, p_t, v_t, F_t, K_t = filter(y_t=y_t, a_t=a_t, p_t=p_t, 
+                                                    var_e=var_e, var_h=var_h)
+        
+        # Store output
+        data.loc[t, ['a_t','p_t','v_t','F_t','K_t']] = [a_tt, p_tt, v_t, F_t, K_t]
+    
+    data['F_star_t'] = data['F_t'] / var_e
+    data['var_e_hat_t'] = 1 / (N_OBS - 1) * np.sum(data['v_t'][1:] ** 2 / data['F_star_t'][1:])
+
+    return -N_OBS/2 * np.log(2 * np.pi) - (N_OBS - 1) /2 - (N_OBS - 1) / 2 * np.log(data['var_e_hat_t']) - 0.5 * np.sum(np.log(data['F_star_t'][1:]))
 
 # %%
 data[['a_t','p_t', 'v_t','F_t','K_t']] = np.nan
