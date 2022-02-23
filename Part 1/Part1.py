@@ -96,8 +96,8 @@ sns.histplot(data=errors, kde=True, bins=17, binwidth = 0.4)
 plt.show()
 
 
-x = pd.plotting.autocorrelation_plot(errors)
-x.plot()
+error_plot = pd.plotting.autocorrelation_plot(errors)
+error_plot.plot()
 
 # %%
 
