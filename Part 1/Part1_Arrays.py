@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
+from scipy.optimize import minimize
 
 # %%
 ########## NOTATION
@@ -28,13 +29,42 @@ P1 = 10 ** 7
 N_OBS = data.shape[0]
 
 # %%
-
-def initialize_cols(df, col_names):
-    # Initialize empty columns to help with recursion
-    return df.reindex(df.columns.tolist() + col_names, axis=1)
+def Kalman_Filter_ML(q):
+    var_e = 1
+    var_h = q[0]
+    
+    for t, y_t in enumerate(data['flow'][1:]):
+        # Initialize Values
+        if t == 0 :
+            a_t = data['flow'][0] 
+            p_t = var_e + var_h
+        
+        # Apply the filter
+        a_tt, p_tt, a_t, p_t, v_t, F_t, K_t = KF_filter(y_t=y_t, a_t=a_t, p_t=p_t, 
+                                                    var_e=var_e, var_h=var_h)
+        
+        # Store output
+        data.loc[t, ['a_t','p_t','v_t','F_t','K_t']] = [a_tt, p_tt, v_t, F_t, K_t]
+    
+    data['F_star_t'] = data['F_t'] / var_e
+    var_e_hat = 1 / (N_OBS - 1) * np.sum(data['v_t'][1:] ** 2 / data['F_star_t'][1:])
+    ll = -N_OBS/2 * np.log(2 * np.pi) - (N_OBS - 1) / 2 - \
+        (N_OBS - 1) / 2 * np.log(var_e_hat) - \
+            0.5 * np.sum(np.log(data['F_star_t'][1:]))
+            
+    print(f'Var E: {var_e}')
+    print(f'Var H: {var_h}')
+    print(f'q: {q}')
+    print(f'LL: {ll}')
+    print('------------')
+    return ll
 
 # %%
-def filter(y_t, a_t, p_t, var_e, var_h):
+bnds = [(1e-10, None)]
+test = minimize(Kalman_Filter_ML, (1), method = 'L-BFGS-B', bounds = bnds)
+
+# %%
+def KF_filter(y_t, a_t, p_t, var_e, var_h):
     
     # Kalman gain calculation
     v_t = y_t - a_t
@@ -52,7 +82,7 @@ def filter(y_t, a_t, p_t, var_e, var_h):
     return a_tt, p_tt, a_t, p_t, v_t, F_t, K_t
 
 # %%
-data = initialize_cols(data, col_names=['a_t','p_t', 'v_t','F_t','K_t'])
+data[['a_t','p_t', 'v_t','F_t','K_t']] = np.nan
 
 # %%
 for t, y_t in enumerate(data['flow']):
@@ -69,7 +99,7 @@ for t, y_t in enumerate(data['flow']):
     data.loc[t, ['a_t','p_t','v_t','F_t','K_t']] = [a_tt, p_tt, v_t, F_t, K_t]
 
 data['L_t'] = 1 - data['K_t']
-data = initialize_cols(data,col_names=['r_t','N_t'])
+data[['r_t','N_t']] = np.nan
 
 # %%
 for t in reversed(range(N_OBS)):
@@ -78,6 +108,17 @@ for t in reversed(range(N_OBS)):
     else:
         data.loc[t, 'N_t'] = (1 / data.loc[t+1, 'F_t']) + ((data.loc[t+1, 'L_t'] ** 2) * data.loc[t+1, 'N_t'])
         data.loc[t, 'r_t'] = (data.loc[t+1, 'v_t'] / data.loc[t+1, 'F_t']) + (data.loc[t+1, 'L_t'] * data.loc[t+1, 'r_t'])
+# %%
+
+# %%
+data[['alpha_hat_t', 'V_t']] = np.nan
+data.loc[0, 'alpha_hat_t'] = A1
+data.loc[1:,'alpha_hat_t'] = data.loc[1:, 'a_t'] + data.loc[1:, 'p_t'] * data.loc[:N_OBS, 'r_t']
+data.loc[0, 'V_t'] = P1
+data.loc[1:,'V_t'] = data.loc[1:, 'p_t'] - ((data.loc[1:, 'p_t'] ** 2) * data.loc[:N_OBS, 'N_t'])
+
+
+
 #%%
 
 data['D_t'] = (1 / data['F_t']) + ((data['K_t'] ** 2) * data['N_t'])
@@ -106,7 +147,15 @@ data['e_t'] = data['v_t'] / np.sqrt(data['F_t'])
 
 
 
+# %%
 
+# Confidence intervals
+
+data['a_t_upper_c'] = data['a_t'] + 1.96 * np.sqrt(data['p_t'])
+data['a_t_lower_c'] = data['a_t'] - 1.96 * np.sqrt(data['p_t'])
+
+data['alpha_hat_t_upper_c'] = data['alpha_hat_t'] + 1.96 * np.sqrt(data['V_t'])
+data['alpha_hat_t_lower_c'] = data['alpha_hat_t'] - 1.96 * np.sqrt(data['V_t'])
 
 
 # %%
@@ -118,10 +167,12 @@ axes = axes.ravel()
 ########### STILL NEED CONFIDENCE INTERVALS
 data.plot(ax = axes[0], x = 'year', y = 'flow', linestyle = 'none', marker = '.', color = 'red',
          ylim = (450,1400), xlim = (1865,1975), legend = None)
+data.plot(ax = axes[0], x = 'year', y = 'a_t_upper_c', color = 'black', linewidth = 0.4, legend = None)
 data.plot(ax = axes[0], x = 'year', y = 'a_t', color = 'blue', legend = None)
+data.plot(ax = axes[0], x = 'year', y = 'a_t_lower_c', color = 'black', linewidth = 0.4, legend = None)
 
 # Filtered State Variance Pt
-data.plot(ax = axes[1], x = 'year', y = 'p_t')
+data.plot(ax = axes[1], x = 'year', y = 'p_t', legend =None)
 
 # Prediction Errors vt
 data.plot(ax = axes[2], x = 'year', y = 'v_t', ylim = (-450,450), legend = None)
@@ -135,10 +186,26 @@ plt.savefig('Figures/Fig_2_1.png', facecolor='w')
 
 # %%
 # FIGURE 2.2
-fig, axes = plt.subplots(2,2,figsize=(10,10))
+
+fig, axes = plt.subplots(2,2, figsize = (10,10))
 axes = axes.ravel()
 
+# Data and Smoothed State alpha_hat
+data.plot(ax = axes[0], x = 'year', y = 'flow', linestyle = 'none', marker = '.', color = 'red',
+         ylim = (450,1400), xlim = (1865,1975), legend = None)
+data.iloc[1:].plot(ax = axes[0], x = 'year', y = 'alpha_hat_t_upper_c', color = 'black', linewidth = 0.4, legend = None)
+data.iloc[1:].plot(ax = axes[0], x = 'year', y = 'alpha_hat_t', color = 'blue', legend = None)
+data.iloc[1:].plot(ax = axes[0], x = 'year', y = 'alpha_hat_t_lower_c', color = 'black', linewidth = 0.4, legend = None)
 
+# Smoothed State Variance Vt
+data.plot(ax = axes[1], x = 'year', y = 'V_t', ylim = (2200, 4100), legend =None)
+
+# Smoothing Cumulant rt
+
+data.plot(ax = axes[2], x = 'year', y = 'r_t', legend = None)
+axes[2].axhline(y = 0, color = 'black', linestyle = ':')
+# Smoothing Cumulant Variant Nt
+data.plot(ax = axes[3], x = 'year', y = 'N_t', ylim = (6e-5, .00011), legend =None)
 
 
 # Save Figure
@@ -202,9 +269,17 @@ sns.histplot(ax = axes[1], data=data.iloc[2:], x = 'e_t', stat='density', kde=Tr
 sm.qqplot(data.loc[9:, 'e_t'], ax = axes[2], line ='45')
 
 # Correlogram
+correls = np.correlate(data['e_t'], data['e_t'], mode="full")
+correls /= np.dot(data['e_t'], data['e_t'])
 
-#### DOESN"T LOOK LIKE RIGHT TYPE OF PLOT
-pd.plotting.autocorrelation_plot(data['e_t'], ax = axes[3]).plot()
+maxlags = 10
+lags = np.arange(-maxlags, maxlags + 1)
+correls = correls[N_OBS - 1 - maxlags:N_OBS + maxlags]
+
+axes[3].vlines(lags, [0], correls, linewidth = 15)
+axes[3].axhline()
+axes[3].set_ylim(-1,1)
+axes[3].set_xlim((.5,11))
 
 # Save Figure
 plt.savefig('Figures/Fig_2_7.png', facecolor = 'w')
@@ -232,4 +307,3 @@ sns.histplot(ax = axes[3], data=data.iloc[2:], x = 'r_star_t', stat='density', k
 # Save Figure
 plt.savefig('Figures/Fig_2_8.png', facecolor = 'w')
 
-# %%
