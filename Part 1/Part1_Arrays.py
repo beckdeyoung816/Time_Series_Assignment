@@ -29,39 +29,44 @@ P1 = 10 ** 7
 N_OBS = data.shape[0]
 
 # %%
-def Kalman_Filter_ML(vars):
-    var_e = vars[0]
-    var_h = vars[1]
+def Kalman_Filter_ML(q):
+    
     
     for t, y_t in enumerate(data['flow'][1:]):
         # Initialize Values
         if t == 0 :
             a_t = y_t 
-            p_t = var_e + var_h
+            p_t = 1 + q
         
         # Apply the filter
-        a_tt, p_tt, a_t, p_t, v_t, F_t, K_t = filter(y_t=y_t, a_t=a_t, p_t=p_t, 
-                                                    var_e=var_e, var_h=var_h)
-        
+        a_tt, p_tt, a_t, p_t, v_t, F_t, K_t = filter(y_t=y_t, a_t=a_t, p_t=p_t, q=q) 
+                                                            
         # Store output
         data.loc[t, ['a_t','p_t','v_t','F_t','K_t']] = [a_tt, p_tt, v_t, F_t, K_t]
     
-    data['F_star_t'] = data['F_t'] / var_e
-    var_e_hat = 1 / (N_OBS - 1) * np.sum(data['v_t'][1:] ** 2 / data['F_star_t'][1:])
+    #data['F_star_t'] = data['F_t'] / var_e
+    var_e_hat = 1 / (N_OBS - 1) * np.sum(data['v_t'][1:] ** 2 / data['F_t'][1:])
 
     return -N_OBS/2 * np.log(2 * np.pi) - (N_OBS - 1) / 2 - \
         (N_OBS - 1) / 2 * np.log(var_e_hat) - \
-            0.5 * np.sum(np.log(data['F_star_t'][1:]))
+            0.5 * np.sum(np.log(data['F_t'][1:]))
 
 # %%
-bnds = ((0, np.inf), (0, np.inf))
-test = minimize(Kalman_Filter_ML, (1,1), method = 'BFGS', bounds = bnds)
+#bnds = ((0, np.inf), (0, np.inf))
+
+#q = 1
+
+#options={'disp': True}
+test = minimize(Kalman_Filter_ML, q , method = 'BFGS')
+
+#print(Kalman_Filter_ML(q))
+
 # %%
-def filter(y_t, a_t, p_t, var_e, var_h):
+def filter(y_t, a_t, p_t, q):
     
     # Kalman gain calculation
     v_t = y_t - a_t
-    F_t = p_t + var_e
+    F_t = p_t + 1
     K_t = p_t / F_t
     
     # State update
@@ -70,7 +75,7 @@ def filter(y_t, a_t, p_t, var_e, var_h):
     
     # Prediction Step
     a_t = a_tt
-    p_t = p_tt + var_h
+    p_t = p_t * (1-K_t) + q
     
     return a_tt, p_tt, a_t, p_t, v_t, F_t, K_t
 
