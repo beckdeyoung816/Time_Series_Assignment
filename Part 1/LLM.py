@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
+import scipy.stats as ss
 
 ########## NOTATION
 
@@ -63,7 +64,7 @@ class LLM:
             self.a_1 = a_1
             self.P_1 = P_1
     
-    def KF_filter(self, y_t: float, a_t: float, P_t: float, var_e: float, var_h: float):
+    def k_filter(self, y_t: float, a_t: float, P_t: float, var_e: float, var_h: float):
         """Kalman Filter at a single point in time given values at time t-1
 
         Args:
@@ -76,10 +77,16 @@ class LLM:
         Returns:
             _type_: New values at time t
         """
-        # Kalman gain calculation
-        v_t = y_t - a_t
-        F_t = P_t + var_e
-        K_t = P_t / F_t
+        # If y_t is missing, set values for kalman gain
+        if np.isnan(y_t):
+            v_t = 0
+            F_t = 10 ** 7
+            K_t = 0
+        else:
+            # Kalman gain calculation
+            v_t = y_t - a_t
+            F_t = P_t + var_e
+            K_t = P_t / F_t
 
         # State Update / Filtering Step
         a_tt = a_t + (K_t * v_t)
@@ -91,90 +98,153 @@ class LLM:
 
         return a_tt, P_tt, a_t, P_t, v_t, F_t, K_t
     
-    def Kalman_filter(self):
+    def kalman_filter(self, missing:bool=False):
         """Kalman Filter for the entire time series
+
+        Args:
+            missing (bool, optional): Whether or not this is for missing data. Defaults to False.
         """
-        # Initialize columns
-        self.df[['a_t','P_t', 'v_t','F_t','K_t']] = np.nan
+        m = 'm' if missing else '' # If working with missing data, add 'm' to end of column names
+        
+        self.df[['a_t' + m,'P_t' + m, 'v_t' + m,'F_t' + m,'K_t' + m]] = np.nan
         
         # Loop through each observation of y_t
-        for t, y_t in enumerate(self.df['y_t']):
+        for t, y_t in enumerate(self.df['y_t' + m]):
             # Initialize Values
             if t == 0 :
                 a_t = self.a_1 
                 P_t = self.P_1
             
             # Apply the filter and save updated values for next iteration
-            a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.KF_filter(y_t=y_t, a_t=a_t, P_t=P_t,
+            a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t,
                                                                  var_e=self.var_e, var_h=self.var_h)
             
             # Store output
-            self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
+            self.df.loc[t, ['a_t' + m,'P_t' + m,'v_t' + m,'F_t' + m,'K_t' + m]] = [a_tt, P_tt, v_t, F_t, K_t]
 
-    def state_smooth(self):
+    def state_smooth(self, missing:bool=False):
         """Perform State Smoothing
+        
+        Args:
+            missing (bool, optional): Whether or not this is for missing data. Defaults to False.
         """
+        m = 'm' if missing else '' # If working with missing data, add 'm' to end of column names
+        
         # Create Helper variable L_t
-        self.df['L_t'] = 1 - self.df['K_t']
+        self.df['L_t' + m] = 1 - self.df['K_t' + m]
         
         # Initialize columns for recursion
-        self.df[['r_t','N_t']] = np.nan
+        self.df[['r_t' + m,'N_t' + m]] = np.nan
 
         # Smoothing goes in reverse (from t=n to t=1)
         for t in reversed(range(self.N)):
             if t == self.N-1: # Since the last observation has no 't+1', set it to 0
-                self.df.loc[t, ['r_t', 'N_t']] = [0,0]
+                self.df.loc[t, ['r_t' + m, 'N_t' + m]] = [0,0]
             else:
             # Apply the formulas using t+1 when necessary
-                self.df.loc[t, 'N_t'] = (1 / self.df.loc[t+1, 'F_t']) + ((self.df.loc[t+1, 'L_t'] ** 2) * self.df.loc[t+1, 'N_t'])
-                self.df.loc[t, 'r_t'] = (self.df.loc[t+1, 'v_t'] / self.df.loc[t+1, 'F_t']) + \
-                                        (self.df.loc[t+1, 'L_t'] * self.df.loc[t+1, 'r_t'])
+                self.df.loc[t, 'N_t' + m] = (1 / self.df.loc[t+1, 'F_t' + m]) + ((self.df.loc[t+1, 'L_t' + m] ** 2) * self.df.loc[t+1, 'N_t' + m])
+                self.df.loc[t, 'r_t' + m] = (self.df.loc[t+1, 'v_t' + m] / self.df.loc[t+1, 'F_t' + m]) + \
+                                        (self.df.loc[t+1, 'L_t' + m] * self.df.loc[t+1, 'r_t' + m])
                                         
-    def disturbance_smooth(self):
+    def disturbance_smooth(self, missing:bool=False):
         """Perform Disturbance Smoothing
+        Args:
+            missing (bool, optional): Whether or not this is for missing data. Defaults to False.
         """
+        
+        m = 'm' if missing else '' # If working with missing data, add 'm' to end of column names
+        
         # Initliaze columns 
-        self.df[['alpha_hat_t', 'V_t']] = np.nan
+        self.df[['alpha_hat_t' + m, 'V_t' + m]] = np.nan
         
         # Set first value and then recurse
         # We thus start at the second value for a_t and P_t
         # These equations require r_{t-1} and N_{t-1} so we do not use the last values and start at first value
-        self.df.loc[0, 'alpha_hat_t'] = self.a_1
-        self.df.loc[1:,'alpha_hat_t'] = self.df.loc[1:, 'a_t'] + self.df.loc[1:, 'P_t'] * self.df.loc[:self.N, 'r_t']
+        self.df.loc[0, 'alpha_hat_t' + m] = self.a_1
+        self.df.loc[1:,'alpha_hat_t' + m] = self.df.loc[1:, 'a_t' + m] + self.df.loc[1:, 'P_t' + m] * self.df.loc[:self.N, 'r_t' + m]
         
         # Set first value then recurse
-        self.df.loc[0, 'V_t'] = self.P_1
-        self.df.loc[1:,'V_t'] = self.df.loc[1:, 'P_t'] - ((self.df.loc[1:, 'P_t'] ** 2) * self.df.loc[:self.N, 'N_t'])
+        self.df.loc[0, 'V_t' + m] = self.P_1
+        self.df.loc[1:,'V_t' + m] = self.df.loc[1:, 'P_t' + m] - ((self.df.loc[1:, 'P_t' + m] ** 2) * self.df.loc[:self.N, 'N_t' + m])
 
         # Smoothing Error and Variance
-        self.df['u_t'] = (self.df['v_t'] / self.df['F_t']) - (self.df['K_t'] * self.df['r_t'])
-        self.df['D_t'] = (1 / self.df['F_t']) + ((self.df['K_t'] ** 2) * self.df['N_t'])
+        self.df['u_t' + m] = (self.df['v_t' + m] / self.df['F_t' + m]) - (self.df['K_t' + m] * self.df['r_t' + m])
+        self.df['D_t' + m] = (1 / self.df['F_t' + m]) + ((self.df['K_t' + m] ** 2) * self.df['N_t' + m])
 
         # Smoothed Observation Error and State Error
-        self.df['e_hat_t'] = self.var_e * self.df['u_t']
-        self.df['h_hat_t'] = self.var_h * self.df['r_t']
+        self.df['e_hat_t' + m] = self.var_e * self.df['u_t' + m]
+        self.df['h_hat_t' + m] = self.var_h * self.df['r_t' + m]
 
         # Variances and SDs of Observation and State Errors
-        self.df['var_e_hat_t'] = self.var_e - ((self.var_e ** 2) * self.df['D_t'])
-        self.df['sd_e_hat_t'] = np.sqrt(self.df['var_e_hat_t'])
+        self.df['var_e_hat_t' + m] = self.var_e - ((self.var_e ** 2) * self.df['D_t' + m])
+        self.df['sd_e_hat_t' + m] = np.sqrt(self.df['var_e_hat_t' + m])
         
-        self.df['var_h_hat_t'] = self.var_h - ((self.var_h ** 2) * self.df['N_t'])
-        self.df['sd_h_hat_t'] = np.sqrt(self.df['var_h_hat_t'])
+        self.df['var_h_hat_t' + m] = self.var_h - ((self.var_h ** 2) * self.df['N_t' + m])
+        self.df['sd_h_hat_t' + m] = np.sqrt(self.df['var_h_hat_t' + m])
     
     def auxilary_residuals(self):
         self.df['u_star_t'] = self.df['u_t'] / np.sqrt(self.df['D_t'])
         self.df['r_star_t'] = self.df['r_t'] / np.sqrt(self.df['N_t'])
         self.df['e_t'] = self.df['v_t'] / np.sqrt(self.df['F_t'])
+    
+    def missing_filter(self, missing_ranges:list):
+        # Initialize columns and set missing values
+        self.df['y_tm'] = self.df['y_t']
         
-    def get_90_conf_intervals(self, col:str, var:str):
-        """Calculate 90 percent Confidence Intervals for a given variable
+        # Set desired values to missing values
+        for m_range in missing_ranges:
+            self.df.loc[m_range['start']:m_range['stop'], 'y_tm'] = np.nan
+        
+        # Call kalman filter which will account for missing values
+        self.kalman_filter(missing=True)
+    
+    def missing_smooth(self):
+        if 'y_tm' not in self.df.columns:
+            raise ValueError('Please Filter with missing values first')
+        
+        self.state_smooth(missing=True)
+        self.disturbance_smooth(missing=True)
+        
+    def forecast(self, n:int):
+        # Create a copy of the df because we need to add rows and we dont want to affect the original df
+        self.forecast_df = self.df.copy(deep=True).reindex(list(range(0, self.N + n))).reset_index(drop=True)
+        
+        # Generate new t-values
+        time_invteral = int(self.forecast_df['x'][1] - self.forecast_df['x'][0]) # Calculate time interval
+        forecast_time = time_invteral * np.linspace(1,n,int(n/time_invteral)) # Generate n new x values incrementing by 1 time interval
+        self.forecast_df.loc[self.N:self.N + n, 'x'] = self.forecast_df.loc[self.N-1, 'x'] + forecast_time # add these to largest time interval
+
+        # Initialize Columns
+        self.forecast_df[['a_tf','P_tf','v_tf','F_tf']] = np.nan       
+
+        # Perform filter
+        for t, y_t in enumerate(self.forecast_df['y_t']):
+            if t == 0 :
+                a_t = self.a_1 
+                P_t = self.P_1
+                
+            a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
+                                                    var_e=self.var_e, var_h=self.var_h)
+            # Store Values
+            self.forecast_df.loc[t, ['a_tf','P_tf','v_tf','F_tf','K_tf']] = [a_tt, P_tt, v_t, F_t, K_t]
+        
+        # Compute Confidence Intervals
+        self.forecast_df['a_tf_upper_c'] = self.forecast_df['a_tf'] + .67 * np.sqrt(self.forecast_df['P_tf'])
+        self.forecast_df['a_tf_lower_c'] = self.forecast_df['a_tf'] - .67 * np.sqrt(self.forecast_df['P_tf'])
+        
+        
+    def get_conf_intervals(self, col:str, var:str, pct:float):
+        """Calculate Confidence Intervals for a given variable
 
         Args:
             col (str): Column name of the variable
             var (str): Column name of the variance of the variable
+            pct (float, optional): Confidence Interval Percentage
         """
-        self.df[col+'_upper_c'] = self.df[col] + 1.96 * np.sqrt(self.df[var])
-        self.df[col+'_lower_c'] = self.df[col] - 1.96 * np.sqrt(self.df[var])
+        z = ss.norm.ppf(pct) # Get quantile of desired percentage
+        self.df[col+'_upper_c'] = self.df[col] + z * np.sqrt(self.df[var])
+        self.df[col+'_lower_c'] = self.df[col] - z * np.sqrt(self.df[var])
+        
     def Kalman_ML(self, starting_vars):
         def ML_fun(vars):
             var_e = vars[0]
@@ -187,7 +257,7 @@ class LLM:
                     P_t = var_e + var_h
                 
                 # Apply the filter
-                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.KF_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
+                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
                                                             var_e=var_e, var_h=var_h)
                 
                 # Store output
@@ -216,7 +286,7 @@ class LLM:
                     P_t = var_e + var_h
                 
                 # Apply the filter
-                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.KF_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
+                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
                                                             var_e=var_e, var_h=var_h)
                 
                 # Store output
@@ -248,7 +318,7 @@ class LLM:
                     P_t = var_e + var_h
                 
                 # Apply the filter
-                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.KF_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
+                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
                                                                      var_e=var_e, var_h=var_h)
                 
                 # Store output
