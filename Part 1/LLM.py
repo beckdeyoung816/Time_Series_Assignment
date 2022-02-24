@@ -188,31 +188,44 @@ class LLM:
         self.df['e_t'] = self.df['v_t'] / np.sqrt(self.df['F_t'])
     
     def missing_filter(self, missing_ranges:list):
-        # Initialize columns and set missing values
+        """Perform Kalman Filter with missing data
+
+        Args:
+            missing_ranges (list): A list of dictionaries of the form {'start': val, 'stop': val} which says which indices to make NaN
+        """
+        # Initialize new y column that will have missing values
         self.df['y_tm'] = self.df['y_t']
         
         # Set desired values to missing values
         for m_range in missing_ranges:
             self.df.loc[m_range['start']:m_range['stop'], 'y_tm'] = np.nan
         
-        # Call kalman filter which will account for missing values
+        # Call kalman filter
         self.kalman_filter(missing=True)
     
     def missing_smooth(self):
+        """Perform smoothing with missing values
+        """
+        # Make sure the filtering was done first
         if 'y_tm' not in self.df.columns:
             raise ValueError('Please Filter with missing values first')
         
         self.state_smooth(missing=True)
         self.disturbance_smooth(missing=True)
         
-    def forecast(self, n:int):
+    def forecast(self, j:int):
+        """Perform State Forecasting
+
+        Args:
+            j (int): Number of samples to forecast
+        """
         # Create a copy of the df because we need to add rows and we dont want to affect the original df
-        self.forecast_df = self.df.copy(deep=True).reindex(list(range(0, self.N + n))).reset_index(drop=True)
+        self.forecast_df = self.df.copy(deep=True).reindex(list(range(0, self.N + j))).reset_index(drop=True)
         
         # Generate new t-values
         time_invteral = int(self.forecast_df['x'][1] - self.forecast_df['x'][0]) # Calculate time interval
-        forecast_time = time_invteral * np.linspace(1,n,int(n/time_invteral)) # Generate n new x values incrementing by 1 time interval
-        self.forecast_df.loc[self.N:self.N + n, 'x'] = self.forecast_df.loc[self.N-1, 'x'] + forecast_time # add these to largest time interval
+        forecast_time = time_invteral * np.linspace(1,j,int(j/time_invteral)) # Generate n new x values incrementing by 1 time interval
+        self.forecast_df.loc[self.N:self.N + j, 'x'] = self.forecast_df.loc[self.N-1, 'x'] + forecast_time # add these to largest time interval
 
         # Initialize Columns
         self.forecast_df[['a_tf','P_tf','v_tf','F_tf']] = np.nan       
@@ -239,7 +252,7 @@ class LLM:
         Args:
             col (str): Column name of the variable
             var (str): Column name of the variance of the variable
-            pct (float, optional): Confidence Interval Percentage
+            pct (float): Confidence Interval Percentage
         """
         z = ss.norm.ppf(pct) # Get quantile of desired percentage
         self.df[col+'_upper_c'] = self.df[col] + z * np.sqrt(self.df[var])

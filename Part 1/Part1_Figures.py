@@ -207,6 +207,7 @@ nile_llm.missing_filter([{'start': 21, 'stop': 40},
 nile_llm.missing_smooth()
 forecast_n = 30
 nile_llm.forecast(n=forecast_n)
+
 # Confidence intervals
 nile_llm.get_conf_intervals('a_t', 'P_t', pct=.90)
 nile_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.90)
