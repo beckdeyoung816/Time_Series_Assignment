@@ -223,7 +223,7 @@ fig_1(nile_llm.df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975),ylim_
 fig_2(nile_llm.df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975),ylim_1=(2200, 4100), ylim_3=(6e-5, .00011))
 fig_3(nile_llm.df, df_name = 'nile', ylim_0=(-375,300), xlim_0=(1865,1975),ylim_2=(-43,40), xlim_2=(1865,1975))
 fig_5(nile_llm.df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975), ylim_2=(450,1400), xlim_2=(1865,1975), ylim_3=(2200, 10000))
-fig_6(nile_llm.forecast_df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975 + forecast_n), ylim_2=(700,1200), ylim_3=(20000,60000))
+fig_6(nile_llm.forecast_df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975 + forecast_n_nile), ylim_2=(700,1200), ylim_3=(20000,60000))
 fig_7(nile_llm.df, df_name = 'nile', ylim_0=(-2.8,2.8), ylim_3=(-1,1), xlim_3=(.5,11))
 fig_8(nile_llm.df, df_name = 'nile', ylim_0=(-3,2.2), ylim_2=(-3,2.2))
 
