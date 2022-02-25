@@ -81,34 +81,24 @@ class LLM:
         Returns:
             _type_: New values at time t
         """
-        # If y_t is missing, set values for kalman gain
+        # Kalman gain calculation
+        F_t = P_t + var_e
+        K_t = P_t / F_t
+        
+        # If y_t is missing, use Equation 2.54 for the filtering step
         if np.isnan(y_t):
-            v_t = 0
-            # F_t = 10 ** 7
-            # K_t = 0
-            F_t = P_t + var_e
-            K_t = P_t / F_t            
-            
-            # State Update / Filtering Step
+            v_t = 0 # set as missing/0 because no y_t        
             a_tt = a_t
             P_tt = P_t
-
-            # Prediction Step
-            a_t = a_tt
-            P_t = P_tt + var_h    
+  
         else:
-            # Kalman gain calculation
             v_t = y_t - a_t
-            F_t = P_t + var_e
-            K_t = P_t / F_t
-
-            # State Update / Filtering Step
             a_tt = a_t + (K_t * v_t)
             P_tt = P_t * (1-K_t)
 
-            # Prediction Step
-            a_t = a_tt
-            P_t = P_tt + var_h
+        # Prediction Step
+        a_t = a_tt
+        P_t = P_tt + var_h
 
         return a_tt, P_tt, a_t, P_t, v_t, F_t, K_t
     
