@@ -223,8 +223,8 @@ class LLM:
         self.forecast_df = self.df.copy(deep=True).reindex(list(range(0, self.N + j))).reset_index(drop=True)
         
         # Generate new t-values
-        time_invteral = int(self.forecast_df['x'][1] - self.forecast_df['x'][0]) # Calculate time interval
-        forecast_time = time_invteral * np.linspace(1,j,int(j/time_invteral)) # Generate n new x values incrementing by 1 time interval
+        time_interval = self.forecast_df['x'][1] - self.forecast_df['x'][0] # Calculate time interval
+        forecast_time = np.array([time_interval * i for i in range(j)]) # Generate n new x values incrementing by 1 time interval
         self.forecast_df.loc[self.N:self.N + j, 'x'] = self.forecast_df.loc[self.N-1, 'x'] + forecast_time # add these to largest time interval
 
         # Initialize Columns
