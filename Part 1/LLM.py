@@ -31,7 +31,7 @@ import scipy.stats as ss
 
 
 class LLM:
-    def __init__(self, data: pd.DataFrame, var_e:float=None, var_h:float=None, a_1:float=None, P_1:float=None, q0:list=None):
+    def __init__(self, data:pd.DataFrame, var_e:float=None, var_h:float=None, a_1:float=None, P_1:float=None, q0:list=None):
         """Initialize Local Level Model Object
         Args:
             data (pd.DataFrame): Time Series Data
@@ -51,7 +51,7 @@ class LLM:
                 raise ValueError('Please specify q0 or var_e and var_h')
             self.var_e_hat = 1 # Just an intialization for a variable calculated in the MLE
                      
-            self.q = self.Kalman_ML_q(q0)[0] # Get q from MLE
+            self.q = self.mle_q(q0)[0] # Get q from MLE
             self.var_e = self.var_e_hat # Var E hat updated in MLE
             self.var_h = self.var_e * self.q # Calculate variance of h
         else:
@@ -84,21 +84,31 @@ class LLM:
         # If y_t is missing, set values for kalman gain
         if np.isnan(y_t):
             v_t = 0
-            F_t = 10 ** 7
-            K_t = 0
+            # F_t = 10 ** 7
+            # K_t = 0
+            F_t = P_t + var_e
+            K_t = P_t / F_t            
+            
+            # State Update / Filtering Step
+            a_tt = a_t
+            P_tt = P_t
+
+            # Prediction Step
+            a_t = a_tt
+            P_t = P_tt + var_h    
         else:
             # Kalman gain calculation
             v_t = y_t - a_t
             F_t = P_t + var_e
             K_t = P_t / F_t
 
-        # State Update / Filtering Step
-        a_tt = a_t + (K_t * v_t)
-        P_tt = P_t * (1-K_t)
+            # State Update / Filtering Step
+            a_tt = a_t + (K_t * v_t)
+            P_tt = P_t * (1-K_t)
 
-        # Prediction Step
-        a_t = a_tt
-        P_t = P_tt + var_h
+            # Prediction Step
+            a_t = a_tt
+            P_t = P_tt + var_h
 
         return a_tt, P_tt, a_t, P_t, v_t, F_t, K_t
     
@@ -247,11 +257,11 @@ class LLM:
                                                     var_e=self.var_e, var_h=self.var_h)
             # Store Values
             self.forecast_df.loc[t, ['a_tf','P_tf','v_tf','F_tf','K_tf']] = [a_tt, P_tt, v_t, F_t, K_t]
-        
+            
         # Compute Confidence Intervals
-        self.forecast_df['a_tf_upper_c'] = self.forecast_df['a_tf'] + .67 * np.sqrt(self.forecast_df['P_tf'])
-        self.forecast_df['a_tf_lower_c'] = self.forecast_df['a_tf'] - .67 * np.sqrt(self.forecast_df['P_tf'])
-        
+        z = ss.norm.ppf((1 + 0.5) / 2)
+        self.forecast_df['a_tf_upper_c'] = self.forecast_df['a_tf'] + z * np.sqrt(self.forecast_df['P_tf'])
+        self.forecast_df['a_tf_lower_c'] = self.forecast_df['a_tf'] - z * np.sqrt(self.forecast_df['P_tf'])
         
     def get_conf_intervals(self, col:str, var:str, pct:float):
         """Calculate Confidence Intervals for a given variable
@@ -261,12 +271,25 @@ class LLM:
             var (str): Column name of the variance of the variable
             pct (float): Confidence Interval Percentage
         """
-        z = ss.norm.ppf(pct) # Get quantile of desired percentage
+        z = ss.norm.ppf((1 + pct) / 2) # Get quantile of desired percentage
         self.df[col+'_upper_c'] = self.df[col] + z * np.sqrt(self.df[var])
         self.df[col+'_lower_c'] = self.df[col] - z * np.sqrt(self.df[var])
     
-    def Kalman_ML_q(self, q0):
-        def ML_fun_q(q):
+    def mle_q(self, q0:list):
+        """Compute optimal signal-noise ratio and associated error variances through MLE
+
+        Args:
+            q0 (list): Initialization for q. Must be in a list as [q0]
+        """
+        def calc_neg_log_lk(q:list):
+            """Calculate negative log likelihood for a given q value
+
+            Args:
+                q (list): Initialization for q. Must be in a list as [q0]
+
+            Returns:
+                float: negative log likelihood
+            """
             var_e = 1
             var_h = q[0]
             q = var_h/var_e
@@ -296,6 +319,6 @@ class LLM:
             return -ll # Return the negative since we are minimizing
                     
         bnds = [(1e-10, None)] # Make sure q is positive
-        results = minimize(ML_fun_q, [q0], method = 'L-BFGS-B', bounds = bnds) # Perform optimization
+        results = minimize(calc_neg_log_lk, [q0], method = 'L-BFGS-B', bounds = bnds) # Perform optimization
         
         return results['x'] # Return optimal q value

@@ -3,12 +3,15 @@
 import pandas as pd
 import datetime as dt
 import scipy.stats as ss
-
+import matplotlib.pyplot as plt
 
 from LLM import LLM
 import Part1_Figures as p1f
 
 # %%
+############################### NILE DATA
+
+# Load in data and initialize LLM
 nile_data = pd.read_excel('../Data/Nile.xlsx', names = ['x', 'y_t'])
 nile_llm = LLM(data=nile_data, var_e=15099, var_h=1469.1, a_1=0, P_1=10**7)
 
@@ -28,8 +31,8 @@ nile_llm.forecast(j=forecast_n_nile)
 # Confidence intervals
 nile_llm.get_conf_intervals('a_t', 'P_t', pct=.90)
 nile_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.90)
-# nile_llm.get_conf_intervals('a_t', 'P_t', pct=.50)
-# nile_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.50)
+nile_llm.get_conf_intervals('a_t', 'P_t', pct=.50)
+nile_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.50)
 # %%
 # Generate and Save Figures
 p1f.fig_1(nile_llm.df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975),ylim_2=(-450,450), ylim_3=(20000,32500))
@@ -40,13 +43,20 @@ p1f.fig_6(nile_llm.forecast_df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(186
 p1f.fig_7(nile_llm.df, df_name = 'nile', ylim_0=(-2.8,2.8), ylim_3=(-1,1), xlim_3=(.5,11))
 p1f.fig_8(nile_llm.df, df_name = 'nile', ylim_0=(-3,2.2), ylim_2=(-3,2.2))
 
+
+
+
 # %%
+############################### CPI DATA
+
+# Load in data and perforn some cleaning
 cpi_data= pd.read_csv('../Data/CPI.csv')
 cpi_data.columns = ['x', 'y_t']
 cpi_data['x'] = pd.to_datetime(cpi_data['x'], format= '%Y-%m-%d')
-cpi_data['y_t'] = cpi_data['y_t'].pct_change() * 100
+cpi_data['y_t'] = cpi_data['y_t'].pct_change() * 100 # We are examining the percent change rather than original values
 
-cpi_llm = LLM(data=cpi_data.iloc[1:].reset_index(), q0 = [1]) # Initialize q = 1 for MLE
+# Initialize LLM with q0 = 1 for MLE to determine variances
+cpi_llm = LLM(data=cpi_data.iloc[1:].reset_index(), q0 = [1]) 
 
 # Set parameters
 missing_vals_cpi = [{'start': 21, 'stop': 40},
@@ -64,15 +74,15 @@ cpi_llm.forecast(j=forecast_n_cpi)
 # Confidence intervals
 cpi_llm.get_conf_intervals('a_t', 'P_t', pct=.90)
 cpi_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.90)
-# cpi_llm.get_conf_intervals('a_t', 'P_t', pct=.50)
-# cpi_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.50)
+cpi_llm.get_conf_intervals('a_t', 'P_t', pct=.50)
+cpi_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.50)
 # %%
 # Generate and Save Figures
-p1f.fig_1(cpi_llm.df, df_name = 'cpi', ylim_0=(-3,5),ylim_2=(-5,3), xlim_0=(dt.date(1950,1,1), dt.date(2030,1,1)))
-# %%
-p1f.fig_2(cpi_llm.df, df_name = 'cpi', ylim_0=(-3,5))
-p1f.fig_3(cpi_llm.df, df_name = 'cpi')
-p1f.fig_5(cpi_llm.df, df_name = 'cpi')
+xlim_cpi_date = (-50,220) # General limit for x axis for the CPI data
+p1f.fig_1(cpi_llm.df, df_name = 'cpi', ylim_0=(-3,5),xlim_0=xlim_cpi_date, xlim_1=xlim_cpi_date, ylim_2=(-5,3), xlim_3=xlim_cpi_date)
+p1f.fig_2(cpi_llm.df, df_name = 'cpi', ylim_0=(-3,5),xlim_0=xlim_cpi_date, xlim_1=xlim_cpi_date, xlim_3=xlim_cpi_date)
+p1f.fig_3(cpi_llm.df, df_name = 'cpi', xlim_0=xlim_cpi_date, xlim_1=xlim_cpi_date, xlim_3=xlim_cpi_date)
+p1f.fig_5(cpi_llm.df, df_name = 'cpi',xlim_0=xlim_cpi_date, xlim_1=xlim_cpi_date, xlim_3=xlim_cpi_date)
 p1f.fig_6(cpi_llm.forecast_df, df_name = 'cpi')
-p1f.fig_7(cpi_llm.df, df_name = 'cpi', ylim_3=(-2,3))
-p1f.fig_8(cpi_llm.df, df_name = 'cpi')
+p1f.fig_7(cpi_llm.df, df_name = 'cpi', ylim_3=(-2,3),xlim_0=xlim_cpi_date, xlim_1=(-4,4))
+p1f.fig_8(cpi_llm.df, df_name = 'cpi', xlim_0=xlim_cpi_date, xlim_2=xlim_cpi_date)
