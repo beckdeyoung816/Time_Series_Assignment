@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 import scipy.stats as ss
 
 ########## NOTATION
-
+# alpha_t = States
 # v_t = Prediction Error
 # F_t = var(v_t)
 
@@ -19,12 +19,11 @@ import scipy.stats as ss
 # r_t = Smoothing Cumulant
 # N_t = var(r_t)
 
-# alpha_t = 
-# V_t =
+# alpha_hat_t = Smoothed State
+# V_t = Smoothed State Variance
 
 # e_hat_t = Smoothed Observation Disturbance / Error
 # h_hat_t = Smoothed Mean of the Disturbance / State Error
-
 
 # u_star_t = Observation Residual
 # r_star_t = State Residual
@@ -32,7 +31,7 @@ import scipy.stats as ss
 
 
 class LLM:
-    def __init__(self, data: pd.DataFrame, var_e:float=None, var_h:float=None, a_1:float=None, P_1:float=None, ML_start:list=None):
+    def __init__(self, data: pd.DataFrame, var_e:float=None, var_h:float=None, a_1:float=None, P_1:float=None, q0:list=None):
         """Initialize Local Level Model Object
         Args:
             data (pd.DataFrame): Time Series Data
@@ -40,31 +39,32 @@ class LLM:
             var_h (float, optional): Variance of Eta. Defaults to None.
             a_1 (float, optional): Starting value for a_t. Defaults to None.
             P_1 (float, optional): Starting value for P_t. Defaults to None.
-            ML_start (list, optional): Starting values for maximum likelihood estimation
+            q0 (list, optional): Starting value for q for maximum likelihood estimation of form [q0]
         """
         # Assign final attributes of the data and the number of observations    
         self.df = data
         self.N = self.df.shape[0]
-        # If no variances are specified, then we estimate them through maximum likelihood
-        # a_1 and P_1 are implied in this case
-        if var_e is None or var_h is None:
-            if ML_start is None:
-                raise ValueError('Please specify ML_Start or var_e and var_h')         
-            self.q = self.Kalman_ML_q(ML_start)[0] # Get q from MLE
-            self.var_e = self.var_e_hat # Var E hat calculated in MLE
-            self.var_h = self.var_e * self.q # Calculate variance of h
-            self.a_1 = self.df['y_t'][0]
-            self.P_1 = self.var_e + self.var_h
-            
-        # If variances are specified, starting values for a_t and P_t must be specified too 
-        elif a_1 is None or P_1 is None:
-            raise ValueError('Please specify a_1 and/or P_1')
         
-        # Otherwise, assign the given variances and starting values
+        # If no variances are specified, then we estimate them through maximum likelihood
+        if var_e is None or var_h is None:
+            if q0 is None:
+                raise ValueError('Please specify q0 or var_e and var_h')
+            self.var_e_hat = 1 # Just an intialization for a variable calculated in the MLE
+                     
+            self.q = self.Kalman_ML_q(q0)[0] # Get q from MLE
+            self.var_e = self.var_e_hat # Var E hat updated in MLE
+            self.var_h = self.var_e * self.q # Calculate variance of h
         else:
             self.var_e = var_e
             self.var_h = var_h
             self.q = self.var_h / self.var_e
+            
+        # If starting values for P and a are not specified, we use diffuse initialization
+        if a_1 is None or P_1 is None:
+            # Diffuse Initialization
+            self.a_1 = self.df['y_t'][0]
+            self.P_1 = self.var_e + self.var_h
+        else:
             self.a_1 = a_1
             self.P_1 = P_1
     
@@ -187,11 +187,13 @@ class LLM:
         self.df['sd_h_hat_t' + m] = np.sqrt(self.df['var_h_hat_t' + m])
     
     def auxilary_residuals(self):
+        """Calculate extra residual variables u_t*, r_t*, and e_t
+        """
         self.df['u_star_t'] = self.df['u_t'] / np.sqrt(self.df['D_t'])
         self.df['r_star_t'] = self.df['r_t'] / np.sqrt(self.df['N_t'])
         self.df['e_t'] = self.df['v_t'] / np.sqrt(self.df['F_t'])
     
-    def missing_filter(self, missing_ranges:list):
+    def filter_with_missing_vals(self, missing_ranges:list):
         """Perform Kalman Filter with missing data
 
         Args:
@@ -207,7 +209,7 @@ class LLM:
         # Call kalman filter
         self.kalman_filter(missing=True)
     
-    def missing_smooth(self):
+    def smooth_with_missing_vals(self):
         """Perform smoothing with missing values
         """
         # Make sure the filtering was done first
@@ -224,9 +226,10 @@ class LLM:
             j (int): Number of samples to forecast
         """
         # Create a copy of the df because we need to add rows and we dont want to affect the original df
+        # Also add j blank rows to the end of the dataset
         self.forecast_df = self.df.copy(deep=True).reindex(list(range(0, self.N + j))).reset_index(drop=True)
         
-        # Generate new t-values
+        # Generate new x-values for these additional rows
         time_interval = self.forecast_df['x'][1] - self.forecast_df['x'][0] # Calculate time interval
         forecast_time = np.array([time_interval * i for i in range(j)]) # Generate n new x values incrementing by 1 time interval
         self.forecast_df.loc[self.N:self.N + j, 'x'] = self.forecast_df.loc[self.N-1, 'x'] + forecast_time # add these to largest time interval
@@ -280,19 +283,19 @@ class LLM:
                 # Store output
                 self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
             
+            # Calculate helper variable for log likelihood calculation
             self.df['F_star_t'] = self.df['F_t'] / var_e
+            # We store the var_e_hat in self because this is the optimal var_e and we will then multiple it with the outputted q to get var_h
             self.var_e_hat = 1 / (self.N - 1) * np.sum(self.df['v_t'][1:] ** 2 / self.df['F_star_t'][1:])
-            # print(f'var_e: {self.var_e_hat}')
-            # print(f'q: {q}')
-            # print(f'var_h_hat: {q * self.var_e_hat}')
-            # print('--------')
             
+            # Equation 2.63
             ll = -self.N/2 * np.log(2 * np.pi) - (self.N - 1) / 2 - \
                 (self.N - 1) / 2 * np.log(self.var_e_hat) - \
                     0.5 * np.sum(np.log(self.df['F_star_t'][1:]))
                     
-            return -ll
+            return -ll # Return the negative since we are minimizing
                     
-        bnds = [(1e-10, None)]
-        results = minimize(ML_fun_q, [q0], method = 'L-BFGS-B', bounds = bnds)
-        return results['x']
+        bnds = [(1e-10, None)] # Make sure q is positive
+        results = minimize(ML_fun_q, [q0], method = 'L-BFGS-B', bounds = bnds) # Perform optimization
+        
+        return results['x'] # Return optimal q value
