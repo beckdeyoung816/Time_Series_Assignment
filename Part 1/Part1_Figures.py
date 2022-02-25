@@ -200,24 +200,24 @@ data = pd.read_excel('../Data/Nile.xlsx', names = ['x', 'y_t'])
 nile_llm = LLM(data=data, var_e=15099, var_h=1469.1, a_1=0, P_1=10**7)
 
 # Set parameters
-missing_vals = [{'start': 21, 'stop': 40},
+missing_vals_nile = [{'start': 21, 'stop': 40},
                 {'start': 61, 'stop': 80}] # Indices for missing vals
-forecast_n = 30 # Number of samples to forecast
+forecast_n_nile = 30 # Number of samples to forecast
 # %%
 nile_llm.kalman_filter()
 nile_llm.state_smooth()
 nile_llm.disturbance_smooth()
 nile_llm.auxilary_residuals()
-nile_llm.missing_filter(missing_ranges=missing_vals)
+nile_llm.missing_filter(missing_ranges=missing_vals_nile)
 nile_llm.missing_smooth()
-nile_llm.forecast(j=forecast_n)
+nile_llm.forecast(j=forecast_n_nile)
 
 # Confidence intervals
 nile_llm.get_conf_intervals('a_t', 'P_t', pct=.90)
 nile_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.90)
 # nile_llm.get_conf_intervals('a_t', 'P_t', pct=.50)
 # nile_llm.get_conf_intervals('alpha_hat_t', 'V_t', pct=.50)
-
+# %%
 # Generate and Save Figures
 fig_1(nile_llm.df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975),ylim_2=(-450,450), ylim_3=(20000,32500))
 fig_2(nile_llm.df, df_name = 'nile', ylim_0=(450,1400), xlim_0=(1865,1975),ylim_1=(2200, 4100), ylim_3=(6e-5, .00011))
@@ -231,15 +231,19 @@ fig_8(nile_llm.df, df_name = 'nile', ylim_0=(-3,2.2), ylim_2=(-3,2.2))
 data2= pd.read_csv('../Data/AirPassengers.csv')
 data2['Month'] = pd.to_datetime(data2['Month']).dt.to_period('M') # Convert datatime to months
 data2.columns = ['x', 'y_t'] # Rename columns
+# Set parameters
+missing_vals_air = [{'start': 21, 'stop': 40},
+                {'start': 61, 'stop': 80}] # Indices for missing vals
+forecast_n_air = 30 # Number of samples to forecast
 # %%
-air_llm = LLM(data=data2, var_e=15099, var_h=1469.1, a_1=0, P_1=10**7)
+air_llm = LLM(data=data2, ML_start = [1])
 air_llm.kalman_filter()
 air_llm.state_smooth()
 air_llm.disturbance_smooth()
 air_llm.auxilary_residuals()
-air_llm.missing_filter(missing_ranges=missing_vals)
+air_llm.missing_filter(missing_ranges=missing_vals_air)
 air_llm.missing_smooth()
-air_llm.forecast(j=forecast_n)
+air_llm.forecast(j=forecast_n_air)
 
 # Confidence intervals
 air_llm.get_conf_intervals('a_t', 'P_t', pct=.90)

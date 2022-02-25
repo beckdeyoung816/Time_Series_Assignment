@@ -50,8 +50,11 @@ class LLM:
         if var_e is None or var_h is None:
             if ML_start is None:
                 raise ValueError('Please specify ML_Start or var_e and var_h')         
-            self.res = self.Kalman_ML(ML_start)
-            self.var_e, self.var_h = self.res.x
+            self.q = self.Kalman_ML_q(ML_start)[0] # Get q from MLE
+            self.var_e = self.var_e_hat # Var E hat calculated in MLE
+            self.var_h = self.var_e * self.q # Calculate variance of h
+            self.a_1 = self.df['y_t'][0]
+            self.P_1 = self.var_e + self.var_h
             
         # If variances are specified, starting values for a_t and P_t must be specified too 
         elif a_1 is None or P_1 is None:
@@ -61,6 +64,7 @@ class LLM:
         else:
             self.var_e = var_e
             self.var_h = var_h
+            self.q = self.var_h / self.var_e
             self.a_1 = a_1
             self.P_1 = P_1
     
@@ -257,35 +261,6 @@ class LLM:
         z = ss.norm.ppf(pct) # Get quantile of desired percentage
         self.df[col+'_upper_c'] = self.df[col] + z * np.sqrt(self.df[var])
         self.df[col+'_lower_c'] = self.df[col] - z * np.sqrt(self.df[var])
-        
-    def Kalman_ML(self, starting_vars):
-        def ML_fun(vars):
-            var_e = vars[0]
-            var_h = vars[1]
-            q = var_h/var_e
-            for t, y_t in enumerate(self.df['y_t'][1:]):
-                # Initialize Values
-                if t == 0 :
-                    a_t = self.df['y_t'][0] # Initialize at y1
-                    P_t = var_e + var_h
-                
-                # Apply the filter
-                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
-                                                            var_e=var_e, var_h=var_h)
-                
-                # Store output
-                self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
-            
-            self.df['F_star_t'] = self.df['F_t'] / var_e
-            var_e_hat = 1 / (self.N - 1) * np.sum(self.df['v_t'][1:] ** 2 / self.df['F_star_t'][1:])
-
-            return -self.N/2 * np.log(2 * np.pi) - (self.N - 1) / 2 - \
-                (self.N - 1) / 2 * np.log(var_e_hat) - \
-                    0.5 * np.sum(np.log(self.df['F_star_t'][1:]))
-                    
-        bnds = [(1e-10, None), (1e-10, None)]
-        results = minimize(ML_fun, starting_vars, method = 'L-BFGS-B', bounds = bnds)
-        return results
     
     def Kalman_ML_q(self, q0):
         def ML_fun_q(q):
@@ -306,45 +281,18 @@ class LLM:
                 self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
             
             self.df['F_star_t'] = self.df['F_t'] / var_e
-            var_e_hat = 1 / (self.N - 1) * np.sum(self.df['v_t'][1:] ** 2 / self.df['F_star_t'][1:])
-
-            return -self.N/2 * np.log(2 * np.pi) - (self.N - 1) / 2 - \
-                (self.N - 1) / 2 * np.log(var_e_hat) - \
+            self.var_e_hat = 1 / (self.N - 1) * np.sum(self.df['v_t'][1:] ** 2 / self.df['F_star_t'][1:])
+            # print(f'var_e: {self.var_e_hat}')
+            # print(f'q: {q}')
+            # print(f'var_h_hat: {q * self.var_e_hat}')
+            # print('--------')
+            
+            ll = -self.N/2 * np.log(2 * np.pi) - (self.N - 1) / 2 - \
+                (self.N - 1) / 2 * np.log(self.var_e_hat) - \
                     0.5 * np.sum(np.log(self.df['F_star_t'][1:]))
+                    
+            return -ll
                     
         bnds = [(1e-10, None)]
         results = minimize(ML_fun_q, [q0], method = 'L-BFGS-B', bounds = bnds)
-        return results
-    
-    
-    def Kalman_avg_ML(self, starting_vars):
-        def ML_avg_fun(vars):
-            var_e = vars[0]
-            var_h = vars[1]
-            q = var_h/var_e
-            
-            total_ll = 0
-            for t, y_t in enumerate(self.df['y_t'][1:]):
-                # Initialize Values
-                if t == 0 :
-                    a_t = self.df['y_t'][0] # Initialize at y1
-                    P_t = var_e + var_h
-                
-                # Apply the filter
-                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, 
-                                                                     var_e=var_e, var_h=var_h)
-                
-                # Store output
-                self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
-                
-                # Total Log likelihood
-                total_ll += -self.N/2 * np.log(2 * np.pi) - \
-                    (1/2) * np.sum(np.log(self.df['F_t'][1:])) - \
-                    (1/2) * np.sum(self.df['v_t'][1:] ** 2 * self.df['F_t'][1:])
-            
-            return total_ll / self.N # Average LL
-                    
-                    
-        bnds = [(1e-10, None), (1e-10, None)]
-        results = minimize(ML_avg_fun, starting_vars, method = 'L-BFGS-B', bounds = bnds)
-        return results
+        return results['x']
