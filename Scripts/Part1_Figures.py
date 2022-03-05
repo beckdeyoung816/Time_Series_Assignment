@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
 import datetime as dt
+
+FIG_PATH = f'../Figures/Part_1'
     
 def fig_1(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
     fig, axes = plt.subplots(2,2,figsize=(10,10))
@@ -37,7 +39,7 @@ def fig_1(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_ybound(ylim_3)
     
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_1_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_1_{df_name}.png', facecolor = 'w')
     plt.show()
 
 def fig_2(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
@@ -72,7 +74,7 @@ def fig_2(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_ybound(ylim_3)
     
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_2_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_2_{df_name}.png', facecolor = 'w')
     plt.show()
 
 def fig_3(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
@@ -102,7 +104,7 @@ def fig_3(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_ybound(ylim_3)
     
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_3_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_3_{df_name}.png', facecolor = 'w')
     plt.show()
 
 def fig_5(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
@@ -132,7 +134,7 @@ def fig_5(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_ybound(ylim_3)
 
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_5_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_5_{df_name}.png', facecolor = 'w')
     plt.show()
 
 def fig_6(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
@@ -166,7 +168,7 @@ def fig_6(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_ybound(ylim_3)
     
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_6_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_6_{df_name}.png', facecolor = 'w')
     plt.show()
 
 def fig_7(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
@@ -204,7 +206,7 @@ def fig_7(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_xlim(xlim_3)
 
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_7_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_7_{df_name}.png', facecolor = 'w')
     plt.show()
 
 def fig_8(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, xlim_2=None, ylim_2=None,xlim_3=None, ylim_3=None):
@@ -234,6 +236,6 @@ def fig_8(data, df_name='', ylim_0=None, xlim_0=None, ylim_1=None, xlim_1=None, 
     axes[3].set_ybound(ylim_3)
     
     # Save Figure
-    plt.savefig(f'Figures/Fig_2_8_{df_name}.png', facecolor = 'w')
+    plt.savefig(ff'{FIG_PATH}/Fig_2_8_{df_name}.png', facecolor = 'w')
     plt.show()
     
