@@ -12,12 +12,19 @@ from SSM import SSM
 sv = pd.read_excel('../Data/SvData.xlsx')
 sv.columns = ['r_t']
 
+# %%
+sv['y_t'] = sv['r_t'] / 100 # R_t is misscaled
+mu = np.mean(sv['y_t']) # Calculate the mean to detrend the data
+sv['x_t'] = np.log((sv['y_t']-mu) ** 2) # Transform returns
 
 # %%
-mu = np.mean(sv.r_t)
-sv['y_t'] = np.log((sv.r_t-mu) ** 2)
-sv['y_t2'] = np.log(sv.r_t ** 2)
-
+plt.figure(figsize=(15,6))
+plt.plot(sv.y_t)
+plt.ylim((-.03, 0.05))
+plt.xlim((0,950))
 # %%
-plt.plot(sv.y_t2)
+plt.figure(figsize=(15,6))
+plt.scatter(sv.index, sv.x_t)
+plt.ylim((-30, -8))
+plt.xlim((0,950))
 # %%
