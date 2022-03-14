@@ -23,7 +23,7 @@ plt.ylim((-.03, 0.05))
 plt.xlim((0,950))
 # %%
 plt.figure(figsize=(15,6))
-plt.scatter(sv.index, sv.x_t)
+plt.scatter(sv.index, sv.y_t)
 plt.ylim((-30, -8))
 plt.xlim((0,950))
 # %%
@@ -36,7 +36,8 @@ test_llm.kalman_filter()
 
 # %%
 plt.figure(figsize=(15,6))
-plt.plot(test_llm.df.y_t)
+plt.scatter(test_llm.df.index, test_llm.df.y_t)
+#plt.plot(test_llm.df.y_t)
 plt.plot(test_llm.df.a_t, 'red')
 # %%
 
