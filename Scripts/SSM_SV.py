@@ -196,8 +196,8 @@ class SSM_SV:
         self.kalman_filter(var_names=['a_x_t','P_x_t', 'x_star_t','F_x_t','K_x_t'], y_name='X_t_plus_d_t')
         
         # Equation 6.2 to estimate beta 
-        self.Beta = np.sum(self.df['x_star_t'] * self.df['F_y_t'] * self.df['v_star_t']) / \
-            np.sum(self.df['x_star_t'] * self.df['F_y_t'] * self.df['x_star_t']) 
+        self.Beta = np.sum(self.df['x_star_t'] / self.df['F_y_t'] * self.df['v_star_t']) / \
+            np.sum(self.df['x_star_t'] / self.df['F_y_t'] * self.df['x_star_t']) 
         
         # Update dt to now how B*Xt + dt in it
         self.d_t = self.Beta * self.df['X_t'] + self.d_t

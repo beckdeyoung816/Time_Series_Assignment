@@ -99,8 +99,7 @@ axes[0].plot(rv_ssm.df.alpha_hat_t[2:], 'red', linewidth=2, label = 'Smoothed ht
 axes[0].legend(loc='lower right')
 
 
-# xi = w/(1-phi) = -10.2089
-# Ht = ht - xi
+# Ht = ht - xi WHERE xi = w/(1-phi) = -10.2089 from QML
 axes[1].plot(rv_ssm.df.a_t[4:] - rv_ssm.xi, 'blue', label = 'Filtered Ht')
 axes[1].plot(rv_ssm.df.alpha_hat_t[2:] - rv_ssm.xi, 'red', label = 'Smoothed Ht')
 axes[1].legend()
@@ -117,14 +116,12 @@ rv_ssm.state_smooth(beta=True)
 # %%
 fig, axes = plt.subplots(2,1, figsize=(15,12))
 axes[0].scatter(rv_ssm.df.index, rv_ssm.df.y_t, color='black', alpha=.5)
-axes[0].plot(rv_ssm.df.alpha_hat_t_b[2:], 'red', linewidth=2, label = 'Smoothed ht')
+axes[0].plot(rv_ssm.df.alpha_hat_t_beta[2:], 'red', linewidth=2, label = 'Smoothed ht')
 axes[0].legend(loc='lower right')
 
-
-# xi = w/(1-phi) = -10.2089
-# Ht = ht - xi
-axes[1].plot(rv_ssm.df.a_t_b[4:] - rv_ssm.xi, 'blue', label = 'Filtered Ht')
-axes[1].plot(rv_ssm.df.alpha_hat_t_b[2:] - rv_ssm.xi, 'red', label = 'Smoothed Ht')
+# Ht = ht - xi WHERE xi = w/(1-phi) = -10.2089 from QML
+axes[1].plot(rv_ssm.df.a_t_beta[4:] - rv_ssm.xi, 'blue', label = 'Filtered Ht')
+axes[1].plot(rv_ssm.df.alpha_hat_t_beta[2:] - rv_ssm.xi, 'red', label = 'Smoothed Ht')
 axes[1].legend()
 
 # %%
