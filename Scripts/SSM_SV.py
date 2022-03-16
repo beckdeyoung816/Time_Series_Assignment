@@ -50,7 +50,7 @@ class SSM_SV:
         # If no variances are specified, then we estimate them through maximum likelihood
         if Q_t is None or T_t is None or d_t is None:
             
-            mle_results = self.mle_sv_reg(theta0) # Peform MLE
+            mle_results = self.mle_sv(theta0) # Peform MLE
             self.Q_t = mle_results[0] # Var E hat updated in MLE
             self.d_t = mle_results[1] # Omega from MLE
             self.T_t = mle_results[2] # Phi from MLE
@@ -60,6 +60,7 @@ class SSM_SV:
             self.T_t = T_t # Phi from MLE
         
         self.R_t = np.sqrt(self.Q_t) # Calculate sigma_eta
+        self.xi = self.d_t/(1-self.T_t) # Calculate xi
             
         # If starting values for P and a are not specified, we use diffuse initialization
         if a_1 is None or P_1 is None:
@@ -83,8 +84,6 @@ class SSM_SV:
         Returns:
             _type_: New values at time t
         """
-        
-        
                 
         # Kalman gain calculation
         F_t = P_t + H_t
@@ -124,7 +123,7 @@ class SSM_SV:
     def state_smooth(self):
         
         # Create Helper variable L_t
-        self.df['L_t'] = 1 - self.df['K_t']
+        self.df['L_t'] = self.T_t - self.df['K_t']
         
         # Initialize columns for recursion
         self.df[['r_t','N_t', 'alpha_hat_t', 'V_t']] = np.nan
@@ -150,61 +149,6 @@ class SSM_SV:
         self.df.loc[1:,'V_t'] = self.df.loc[1:, 'P_t'] - ((self.df.loc[1:, 'P_t'] ** 2) * self.df.loc[:self.N, 'N_t'])
     
     def mle_sv(self, theta0:list):
-        """Compute optimal signal-noise ratio and associated error variances through MLE
-
-        Args:
-            theta0 (list): Initialization for theta. Must be in a list as [Q_t, d_t, T_t]
-        """
-        def calc_neg_log_lk(theta0:list):
-            """Calculate negative log likelihood for a given theta value
-
-            Args:
-                theta0 (list): Initialization for theta. Must be in a list as [Q_t, d_t, T_t]
-
-            Returns:
-                float: negative log likelihood
-            """
-            
-            Q_t = theta0[0]
-            d_t = theta0[1]
-            T_t = theta0[2]
-
-            R_t = np.sqrt(Q_t)
-            # H_t = (np.pi ** 2) / 2
-            #print(f'Round: {self.mle_round}')
-            for t, y_t in enumerate(self.df['y_t'][1:]):
-                # Initialize Values
-                if t == 0 :
-                    a_t = self.df['y_t'][0] # Initialize at y1
-                    P_t = Q_t + self.H_t
-                
-                # Apply the filter
-                a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, H_t=self.H_t,
-                                                                    Q_t=Q_t, T_t=T_t, c_t=self.c_t, d_t=d_t, R_t=R_t)
-                    
-                # Store output
-                self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
-            
-            # Calculate helper variable for log likelihood calculation
-            F_star_t = self.df['F_t'] / Q_t
-            # We store the var_e_hat in self because this is the optimal var_e and we will then multiple it with the outputted q to get var_h
-            var_e_hat = 1 / (self.N - 1) * np.sum(self.df['v_t'][1:] ** 2 / F_star_t[1:])
-            
-            # Equation 2.63
-            ll = -self.N/2 * np.log(2 * np.pi) - (self.N - 1) / 2 - \
-                (self.N - 1) / 2 * np.log(var_e_hat) - \
-                    0.5 * np.sum(np.log(F_star_t[1:]))
-            
-            self.mle_round +=1
-                    
-            return -ll # Return the negative since we are minimizing
-        self.mle_round = 1           
-        bnds = [(0, None), (None, None), (-1, 1)] # Make sure variance of eta is positive and phi between -1 and 1
-        results = minimize(calc_neg_log_lk, theta0, method = 'L-BFGS-B', bounds = bnds) # Perform optimization
-        
-        return results['x']
-    
-    def mle_sv_reg(self, theta0:list):
         def calc_neg_log_lk(theta0:list):
             Q_t = theta0[0]
             d_t = theta0[1]
@@ -214,8 +158,8 @@ class SSM_SV:
             for t, y_t in enumerate(self.df['y_t'][1:]):
                 # Initialize Values
                 if t == 0 :
-                    a_t = np.mean(self.df['y_t']) # Initialize at y1
-                    P_t = Q_t + self.H_t
+                    a_t = d_t/(1-T_t)
+                    P_t = Q_t/(1-T_t ** 2)
                 
                 # Apply the filter
                 a_tt, P_tt, a_t, P_t, v_t, F_t, K_t = self.k_filter(y_t=y_t, a_t=a_t, P_t=P_t, H_t=self.H_t,
@@ -232,12 +176,12 @@ class SSM_SV:
                     
             return -ll # Return the negative since we are minimizing
         self.mle_round = 1           
-        bnds = [(0, None), (None, None), (-1, 1)] # Make sure variance of eta is positive and phi between -1 and 1
+        bnds = [(0, None), (None, None), (-0.999999999999, 0.999999999)] # Make sure variance of eta is positive and phi between -1 and 1
         results = minimize(calc_neg_log_lk, theta0, method = 'L-BFGS-B', bounds = bnds) # Perform optimization
         
         return results['x'] # Return optimal q value
-    def extended_kf(self):
-        pass
+    def smoothed_Ht(self):
+        self.df['H_star_t']
     
     
     
