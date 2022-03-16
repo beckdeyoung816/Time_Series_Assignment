@@ -1,53 +1,38 @@
 import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
-import scipy.stats as ss
-
-########## NOTATION
-# alpha_t = States
-# v_t = Prediction Error
-# F_t = var(v_t)
-
-# K_t = Kalman Gain
-
-# a_t / a_tt = mean(alpha_t) Filter State
-# p_t / p_tt = var(alpha_t)
-
-# u_t = Smoothing Error
-# D_t = var(u_t)
-
-# r_t = Smoothing Cumulant
-# N_t = var(r_t)
-
-# alpha_hat_t = Smoothed State
-# V_t = Smoothed State Variance
-
-# e_hat_t = Smoothed Observation Disturbance / Error
-# h_hat_t = Smoothed Mean of the Disturbance / State Error
-
-# u_star_t = Observation Residual
-# r_star_t = State Residual
-# e_t = Standardised Prediction Errors
-
-
 class SSM_SV:
-    def __init__(self, data:pd.DataFrame, H_t:float=None, c_t:float=None, Q_t:float=None, d_t:float=None,T_t:float=None,R_t:float=None, a_1:float=None, P_1:float=None, theta0:list=None, Beta:float=None, use_Beta:bool=False):
+    def __init__(self, data:pd.DataFrame, H_t:float=None, c_t:float=None, Q_t:float=None, d_t:float=None,T_t:float=None,R_t:float=None, a_1:float=None, P_1:float=None, theta0:list=None):
         """Initialize Local Level Model Object
         Args:
+            
+            q0 (list, optional): Starting value for q for maximum likelihood estimation of form [q0]
+
+        Args:
+            data (pd.DataFrame): 
+            H_t (float, optional): 
+            Q_t (float, optional): . Defaults to None.
+
+            
             data (pd.DataFrame): Time Series Data
             H_t (float, optional): Variance of Epsilon. Defaults to None.
+            c_t (float, optional): Trend of observation equation. Defaults to None.
             Q_t (float, optional): Variance of Eta. Defaults to None.
+            d_t (float, optional): Trend of state equation. Defaults to None.
+            T_t (float, optional): System Matrix. Defaults to None.
+            R_t (float, optional): System Matrix. Defaults to None.
             a_1 (float, optional): Starting value for a_t. Defaults to None.
             P_1 (float, optional): Starting value for P_t. Defaults to None.
-            q0 (list, optional): Starting value for q for maximum likelihood estimation of form [q0]
+            theta0 (list, optional): Starting values for [Q_t, d_t, phi] for QML. Defaults to None.
         """
-        # Assign final attributes of the data and the number of observations    
+        
+        # Assign attributes of the data and the number of observations    
         self.df = data.copy(deep=True)
         self.N = self.df.shape[0]
         self.c_t = c_t
         self.H_t = H_t
         
-        # If no variances are specified, then we estimate them through maximum likelihood
+        # If the desired parameters are not specified, then we estimate them through maximum likelihood
         if Q_t is None or T_t is None or d_t is None:
             
             mle_results = self.qml_sv(theta0) # Peform MLE
@@ -61,7 +46,7 @@ class SSM_SV:
         
         self.R_t = np.sqrt(self.Q_t) # Calculate sigma_eta
         self.xi = self.d_t/(1-self.T_t) # Calculate xi
-        self.d_t = self.d_t * np.ones(self.N)
+        self.d_t = self.d_t * np.ones(self.N) # Turn d_t into a vector (as it will be time dependent when Beta is used)
         
         # If starting values for P and a are not specified, we use diffuse initialization
         if a_1 is None or P_1 is None:
@@ -71,20 +56,19 @@ class SSM_SV:
         else:
             self.a_1 = a_1
             self.P_1 = P_1
-
-        if use_Beta:
-            self.beta_df = data.copy(deep=True)
-            self.estimate_Beta()
             
     def k_filter(self, y_t: float, a_t: float, P_t: float, H_t: float, Q_t: float, T_t, c_t: float, d_t: float, R_t: float):
         """Kalman Filter at a single point in time given values at time t-1
-
         Args:
             y_t (float): True value
             a_t (float): 
             P_t (float): 
-            var_e (float): Variance of Epsilon
-            var_h (float): Variance of Eta
+            H_t (float): Variance of Epsilon
+            Q_t (float): Variance of Eta
+            T_t (_type_): phi
+            c_t (float): 
+            d_t (float): omega
+            R_t (float): sigma_eta
 
         Returns:
             _type_: New values at time t
@@ -105,15 +89,22 @@ class SSM_SV:
 
         return a_tt, P_tt, a_t, P_t, v_t, F_t, K_t
     
-    def kalman_filter(self, vars=['a_t','P_t', 'v_t','F_t','K_t'], beta=False,y='y_t'):
+    def kalman_filter(self, var_names=['a_t','P_t', 'v_t','F_t','K_t'], beta=False,y_name='y_t'):
         """Kalman Filter for the entire time series
+
+        Args:
+            var_names (list, optional): Variable names for storage. Defaults to ['a_t','P_t', 'v_t','F_t','K_t'].
+            beta (bool, optional): Whether or not this is the model with beta and RV. Defaults to False.
+            y_name (str, optional): Name of y variable. Defaults to 'y_t'.
         """
-        df = self.beta_df if beta else self.df
+        # Add beta to the name of the variables if this is for the model with beta * RV in it
+        var_names = [var + '_beta' for var in var_names] if beta else var_names
         
-        df[vars] = np.nan
+        # Initialize columns for the variables in the recursion
+        self.df[var_names] = np.nan
         
         # Loop through each observation of y_t
-        for t, y_t in enumerate(df[y]):
+        for t, y_t in enumerate(self.df[y_name]):
             # Initialize Values
             if t == 0 :
                 a_t = self.a_1 
@@ -124,34 +115,46 @@ class SSM_SV:
                                                        Q_t=self.Q_t,T_t=self.T_t,c_t=self.c_t,d_t=self.d_t[t], R_t = self.R_t)
             
             # Store output
-            
-            df.loc[t, vars] = [a_tt, P_tt, v_t, F_t, K_t]
+            self.df.loc[t, var_names] = [a_tt, P_tt, v_t, F_t, K_t]
 
-    def state_smooth(self):
+    def state_smooth(self, beta=False):
+        """Peform State Smoothing
+
+        Args:
+            beta (bool, optional): Whether or not this is the model with beta and RV. Defaults to False.
+        """
+        
+        # Add beta to the name of the variables if this is for the model with beta * RV in it
+        b = '_beta' if beta else ''
         
         # Create Helper variable L_t
-        self.df['L_t'] = self.T_t - self.df['K_t']
+        self.df['L_t'+b] = self.T_t - self.df['K_t'+b]
         
         # Initialize columns for recursion
-        self.df[['r_t','N_t', 'alpha_hat_t']] = np.nan
+        self.df[['r_t'+b,'N_t'+b, 'alpha_hat_t'+b]] = np.nan
 
         # Smoothing goes in reverse (from t=n to t=1)
         for t in reversed(range(self.N)):
             if t == self.N-1: # Since the last observation has no 't+1', set it to 0
-                self.df.loc[t, ['r_t', 'N_t']] = [0,0]
+                self.df.loc[t, ['r_t'+b, 'N_t'+b]] = [0,0]
             else:
             # Apply the formulas using t+1 when necessary
-                self.df.loc[t, 'N_t'] = (1 / self.df.loc[t+1, 'F_t']) + ((self.df.loc[t+1, 'L_t'] ** 2) * self.df.loc[t+1, 'N_t'])
-                self.df.loc[t, 'r_t'] = (self.df.loc[t+1, 'v_t'] / self.df.loc[t+1, 'F_t']) + \
-                                        (self.df.loc[t+1, 'L_t'] * self.df.loc[t+1, 'r_t'])
+                self.df.loc[t, 'N_t'+b] = (1 / self.df.loc[t+1, 'F_t'+b]) + ((self.df.loc[t+1, 'L_t'+b] ** 2) * self.df.loc[t+1, 'N_t'+b])
+                self.df.loc[t, 'r_t'+b] = (self.df.loc[t+1, 'v_t'+b] / self.df.loc[t+1, 'F_t'+b]) + \
+                                        (self.df.loc[t+1, 'L_t'+b] * self.df.loc[t+1, 'r_t'+b])
         
         # Set first value and then recurse
         # We thus start at the second value for a_t and P_t
         # These equations require r_{t-1} and N_{t-1} so we do not use the last values and start at first value
-        self.df.loc[0, 'alpha_hat_t'] = self.a_1
-        self.df.loc[1:,'alpha_hat_t'] = self.df.loc[1:, 'a_t'] + self.df.loc[1:, 'P_t'] * self.df.loc[:self.N, 'r_t']
+        self.df.loc[0, 'alpha_hat_t'+b] = self.a_1
+        self.df.loc[1:,'alpha_hat_t'+b] = self.df.loc[1:, 'a_t'+b] + self.df.loc[1:, 'P_t'+b] * self.df.loc[:self.N, 'r_t'+b]
     
     def qml_sv(self, theta0:list):
+        """Peform Quasi-ML for Qt, dt, and Tt
+
+        Args:
+            theta0 (list): Initial values for [Qt, dt, Tt]
+        """
         def calc_neg_log_lk(theta0:list):
             Q_t = theta0[0]
             d_t = theta0[1]
@@ -171,28 +174,32 @@ class SSM_SV:
                 # Store output
                 self.df.loc[t, ['a_t','P_t','v_t','F_t','K_t']] = [a_tt, P_tt, v_t, F_t, K_t]
             
-            # Equation 7.2
+            # Equation 7.2 for the likelihood
             ll = -self.N/2 * np.log(2 * np.pi) - \
                     0.5 * np.sum(np.log(self.df['F_t']) + self.df['v_t'] ** 2 / self.df['F_t'])
-            
-            self.mle_round +=1
                     
             return -ll # Return the negative since we are minimizing
-        self.mle_round = 1           
+         
         bnds = [(0, None), (None, None), (-0.999999999999, 0.999999999)] # Make sure variance of eta is positive and phi between -1 and 1
         results = minimize(calc_neg_log_lk, theta0, method = 'L-BFGS-B', bounds = bnds) # Perform optimization
         
         return results['x'] # Return optimal q value
     
     def estimate_Beta(self):
-        self.kalman_filter(vars=['a_y_t','P_y_t','v_star_t','F_y_t','K_y_t'], beta=True, y='y_t')
+        """Estimate Beta for model with RV
+        """
+        # Run the kalman filter with y_t as the observation
+        self.kalman_filter(var_names=['a_y_t','P_y_t','v_star_t','F_y_t','K_y_t'], y_name='y_t')
         
-        self.beta_df['X_t_plus_d_t'] = self.beta_df['X_t'] + self.d_t
-        self.kalman_filter(vars=['a_x_t','P_x_t', 'x_star_t','F_x_t','K_x_t'], beta=True, y='X_t_plus_d_t')
+        # run the kalman filter with Xt + dt = log(RV_t) + dt as the observation
+        self.df['X_t_plus_d_t'] = self.df['X_t'] + self.d_t
+        self.kalman_filter(var_names=['a_x_t','P_x_t', 'x_star_t','F_x_t','K_x_t'], y_name='X_t_plus_d_t')
         
-        self.Beta = np.sum(self.beta_df['x_star_t'] * self.beta_df['F_y_t'] * self.beta_df['v_star_t']) / \
-            np.sum(self.beta_df['x_star_t'] * self.beta_df['F_y_t'] * self.beta_df['x_star_t']) # Equation 6.2
-            
+        # Equation 6.2 to estimate beta 
+        self.Beta = np.sum(self.df['x_star_t'] * self.df['F_y_t'] * self.df['v_star_t']) / \
+            np.sum(self.df['x_star_t'] * self.df['F_y_t'] * self.df['x_star_t']) 
+        
+        # Update dt to now how B*Xt + dt in it
         self.d_t = self.Beta * self.df['X_t'] + self.d_t
         print(f'Beta: {self.Beta}')
 
