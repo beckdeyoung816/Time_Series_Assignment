@@ -51,7 +51,7 @@ class SSM_SV:
         if Q_t is None or T_t is None or d_t is None:
             
             mle_results = self.mle_sv(theta0) # Peform MLE
-            self.Q_t = mle_results[0] # Var E hat updated in MLE
+            self.Q_t = mle_results[0] # Variance of Eta from MLE
             self.d_t = mle_results[1] # Omega from MLE
             self.T_t = mle_results[2] # Phi from MLE
         else:
