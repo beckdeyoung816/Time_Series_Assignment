@@ -29,13 +29,10 @@ plt.xlim((0,950))
 # %%
 df = sv[['x_t']].rename(columns={'x_t': 'y_t'}, copy=True)
 sv_ssm = SSM_SV(data = df, H_t = (np.pi ** 2) / 2, c_t = -1.27, 
-                #   Q_t = 0.099,
-                #   d_t = -0.1458,
-                #   T_t = 0.9867,
-                  Q_t = 0.345,
-                  d_t = -2.032,
-                  T_t = 0.8005,
-                  )#,
+                  Q_t = 0.04006997037080177,
+                  d_t = -0.1186102356182056,
+                  T_t = 0.9883814337893937,
+                 )#,
                   #theta0=[0.8,0.0077,0.995])
 
 # %%
@@ -43,13 +40,16 @@ sv_ssm.kalman_filter()
 sv_ssm.state_smooth()
 
 # %%
-plt.figure(figsize=(15,6))
-#plt.scatter(sv_ssm.df.index, sv_ssm.df.y_t)
-plt.plot(sv_ssm.df.a_t[1:], 'red', label = 'Filtered')
-plt.plot(sv_ssm.df.alpha_hat_t[2:], 'green', label = 'Smoothed')
-plt.legend()
-# %%
-# %%
+fig, axes = plt.subplots(2,1, figsize=(15,12))
+axes[0].scatter(sv_ssm.df.index, sv_ssm.df.y_t, color='black', alpha=.5)
+axes[0].plot(sv_ssm.df.alpha_hat_t[2:], 'red', linewidth=2, label = 'Smoothed ht')
+axes[0].legend(loc='lower right')
 
+
+# xi = w/(1-phi) = -10.2089
+# Ht = ht - xi
+axes[1].plot(sv_ssm.df.a_t[4:] - sv_ssm.xi, 'blue', label = 'Filtered Ht')
+axes[1].plot(sv_ssm.df.alpha_hat_t[2:] - sv_ssm.xi, 'red', label = 'Smoothed Ht')
+axes[1].legend()
 
 # %%
