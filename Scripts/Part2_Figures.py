@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 FIG_PATH = '../Figures/Part_2'
+TICK_SIZE = 20
 
 def part_a_fig(df, data, y_lim=None, x_lim=(0,950)):
     """Part A plot of data in returns (original y_t)
@@ -12,6 +13,9 @@ def part_a_fig(df, data, y_lim=None, x_lim=(0,950)):
     plt.plot(df['y_t'])
     plt.ylim(y_lim)
     plt.xlim(x_lim)
+    plt.xticks(fontsize=TICK_SIZE)
+    plt.yticks(fontsize=TICK_SIZE)
+
     
     plt.savefig(f'{FIG_PATH}/part_a_{data}.png')
       
@@ -24,6 +28,8 @@ def part_b_fig(df, data, y_lim=None, x_lim=(0,950)):
     plt.scatter(df.index, df.x_t, color='black')
     plt.ylim(y_lim)
     plt.xlim(x_lim)
+    plt.xticks(fontsize=TICK_SIZE)
+    plt.yticks(fontsize=TICK_SIZE)
     
     plt.savefig(f'{FIG_PATH}/part_b_{data}.png')
   
@@ -37,11 +43,13 @@ def part_d_fig(ssm, data, beta = ''):
     fig, axes = plt.subplots(2,1, figsize=(15,12))
     axes[0].scatter(ssm.df.index, ssm.df['y_t'], color='black', alpha=.5)
     axes[0].plot(ssm.df.loc[2:, 'alpha_hat_t' + beta], 'red', linewidth=2, label = 'Smoothed ht')
-    axes[0].legend(loc='lower right')
+    axes[0].legend(loc='lower right', prop={'size': 18})
+    axes[0].tick_params(axis='both', labelsize=TICK_SIZE)
 
     # Ht = ht - xi WHERE xi = w/(1-phi) = -10.2089 from QML
     axes[1].plot(ssm.df.loc[4:, 'a_t'] - ssm.xi, 'blue', label = 'Filtered Ht')
     axes[1].plot(ssm.df.loc[2:, 'alpha_hat_t' + beta] - ssm.xi, 'red', label = 'Smoothed Ht')
-    axes[1].legend()
+    axes[1].legend(prop={'size': 18})
+    axes[1].tick_params(axis='both', labelsize=TICK_SIZE)
 
     plt.savefig(f'{FIG_PATH}/part_d_{data}{beta}.png')
