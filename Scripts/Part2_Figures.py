@@ -55,14 +55,30 @@ def part_d_fig(ssm, data, beta = ''):
 
     fig, axes = plt.subplots(2,1, figsize=(15,12))
     axes[0].scatter(ssm.df.index, ssm.df['y_t'], color='black', alpha=.5)
-    axes[0].plot(ssm.df.loc[2:, 'alpha_hat_t' + beta], 'red', linewidth=2, label = 'Smoothed ht')
+    axes[0].plot(ssm.df.loc[4:, 'alpha_hat_t' + beta], 'red', linewidth=2, label = 'Smoothed ht')
     axes[0].legend(loc='lower right', prop={'size': 18})
     axes[0].tick_params(axis='both', labelsize=TICK_SIZE)
 
-    # Ht = ht - xi WHERE xi = w/(1-phi) = -10.2089 from QML
-    axes[1].plot(ssm.df.loc[4:, 'a_t'] - ssm.xi, 'blue', label = 'Filtered Ht')
-    axes[1].plot(ssm.df.loc[2:, 'alpha_hat_t' + beta] - ssm.xi, 'red', label = 'Smoothed Ht')
-    axes[1].legend(prop={'size': 18})
-    axes[1].tick_params(axis='both', labelsize=TICK_SIZE)
+    
+    if beta == '':
+        # If this is not the plot with beta and rv, plot filtered Ht and smoothed Ht
+        
+        # Ht = ht - xi WHERE xi = w/(1-phi) = -10.2089 from QML
+        axes[1].plot(ssm.df.loc[4:, 'a_t' + beta] - ssm.xi, 'blue', label = 'Filtered Ht')
+        axes[1].plot(ssm.df.loc[4:, 'alpha_hat_t' + beta] - ssm.xi, 'red', label = 'Smoothed Ht')
+        axes[1].legend(prop={'size': 18})
+        axes[1].tick_params(axis='both', labelsize=TICK_SIZE)
+        
+        plt.savefig(f'{FIG_PATH}/part_d_{data}{beta}.png')
+        
+    else:
+        # If this is the plot with beta and rv, plot the data vs the smoothed ht added to the trend
 
-    plt.savefig(f'{FIG_PATH}/part_d_{data}{beta}.png')
+        axes[1].scatter(ssm.df.index, ssm.df['y_t'], color='black', alpha=.5)
+        axes[1].plot(ssm.c_t[2:] + ssm.df.alpha_hat_t_beta[2:], color = 'red', 
+                     label = 'Smoothed ht + Trend ct', alpha = .8)
+        axes[1].legend(prop={'size': 18})
+        axes[1].tick_params(axis='both', labelsize=TICK_SIZE)
+        
+        plt.savefig(f'{FIG_PATH}/Part_e_smoothed_beta.png')
+

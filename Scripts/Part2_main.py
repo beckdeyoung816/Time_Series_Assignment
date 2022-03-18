@@ -22,11 +22,11 @@ sv['x_t'] = np.log((sv['y_t']-mu) ** 2) # Transform returns
 # %%
 df_sv = sv[['x_t']].rename(columns={'x_t': 'y_t'}).copy(deep=True)
 sv_ssm = SSM_SV(data = df_sv, H_t = (np.pi ** 2) / 2, c_t = -1.27, 
+                #theta0=[0.8,0.0077,0.995] # Our initial values used in QML
                   Q_t = 0.04006997037080177,
                   d_t = -0.1186102356182056,
-                  T_t = 0.9883814337893937,
-                 )#,
-                  #theta0=[0.8,0.0077,0.995])
+                  T_t = 0.9883814337893937
+                 )
 
 # %%
 sv_ssm.kalman_filter()
@@ -69,7 +69,7 @@ rv['X_t'] = np.log(rv[rv_measure]) # Calculate log of RV measure to be used as X
 # Create state space model with this new data
 df_rv = rv[['X_t', 'x_t']].rename(columns={'x_t': 'y_t'}).copy(deep=True)
 rv_ssm = SSM_SV(data = df_rv, H_t = (np.pi ** 2) / 2, c_t = -1.27, 
-                # theta0=[0.8,0.0077,0.995]
+                # theta0=[0.8,0.0077,0.995] # Our initial values used in QML
                   Q_t = 0.4247156788750475,
                   d_t = -0.8739300473341086,
                   T_t = 0.9122642976429152
@@ -95,12 +95,5 @@ rv_ssm.state_smooth(beta=True)
 # %%
 p2f.part_d_fig(rv_ssm, data = 'rv', beta = '_beta')
 
+
 # %%
-
-fig, axes = plt.subplots(2,1, figsize=(15,12))
-axes[0].plot(rv_ssm.df.a_t[4:] - rv_ssm.xi, 'blue', label = 'Filtered Ht')
-axes[0].legend()
-
-axes[1].plot(rv_ssm.df.alpha_hat_t[2:] - rv_ssm.xi, 'red', label = 'Smoothed Ht')
-axes[1].legend()
-
