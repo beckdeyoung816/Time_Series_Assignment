@@ -96,4 +96,20 @@ rv_ssm.state_smooth(beta=True)
 p2f.part_d_fig(rv_ssm, data = 'rv', beta = '_beta')
 
 
+
 # %%
+#Part F
+
+# We couldn't figure out some of the distributions so didn't include the code
+'''
+1) Initalization: 
+    Set alpha_0^(i) to p(alpha_0) for i= 1, .. ,N
+2) Compute Weights    
+    Draw N samples from of alpha_tilda_t^(i) from 
+    p(alpha_t|alpha_t-1^i)#unconditional density  where yt ∼ p(yt|αt), αt+1 ∼ p(αt+1|αt)
+    
+    Compute the corresponding weights (w_tilda^)(i)) = p(yt|alpha_tilda_t^(i)) = normal pdf given mu and var
+    Normalise weights to get w^(i)
+3) Compute Estimate using MC for x_hat = w^i * MC simulation (x(alpha_tilda_t))
+4) Resample replacing alphas and weights
+'''
