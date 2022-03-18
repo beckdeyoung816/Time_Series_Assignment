@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import kurtosis
+from scipy.stats import skew
 
 FIG_PATH = '../Figures/Part_2'
 TICK_SIZE = 20
@@ -18,7 +20,18 @@ def part_a_fig(df, data, y_lim=None, x_lim=(0,950)):
 
     
     plt.savefig(f'{FIG_PATH}/part_a_{data}.png')
-      
+    
+def part_a_descr_stats(y):
+    ### Descriptive statistics
+    
+    print(f'Num Obs: {len(y)}')
+    print(f'Mean: {np.mean(y)}')
+    print(f'Std Dev: {np.std(y)}')
+    print(f'Variance: {np.var(y)}')
+    print(f'Minimum: {np.min(y)}')
+    print(f'Maximum: {np.max(y)}')
+    print(f'Kurtosis: {kurtosis(y, fisher=False)}')
+    print(f'Skew: {skew(y)}')
       
 def part_b_fig(df, data, y_lim=None, x_lim=(0,950)):
     """Part B scatter plot of transformed data (x_t)

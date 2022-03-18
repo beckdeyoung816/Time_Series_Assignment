@@ -34,6 +34,7 @@ sv_ssm.state_smooth()
   
 # %%
 p2f.part_a_fig(sv,y_lim=(-.03, 0.05), data = 'sv')
+p2f.part_a_descr_stats(sv['y_t'])
 p2f.part_b_fig(sv,y_lim=(-30, -8), data = 'sv')
 p2f.part_d_fig(sv_ssm, data = 'sv')
 
@@ -80,6 +81,7 @@ rv_ssm.state_smooth()
 
 # %%
 p2f.part_a_fig(rv,y_lim = (-.03, 0.05), data = 'rv')
+p2f.part_a_descr_stats(rv['y_t'])
 p2f.part_b_fig(rv, data = 'rv')
 p2f.part_d_fig(rv_ssm, data = 'rv')
 
